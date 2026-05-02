@@ -1,4 +1,4 @@
-import { Level, Question, Subject } from './types';
+import { Level } from './types';
 
 export const INITIAL_LEVELS: Level[] = [
   {
@@ -163,22 +163,22 @@ export const INITIAL_LEVELS: Level[] = [
   },
   {
     id: 9,
-    title: "9-Bosqich: Mantiq va Bilim",
-    description: "Aralash savollar va mantiq",
+    title: "9-Bosqich: Tarix va Buyuk Siymolar",
+    description: "Vatanimiz tarixi va buyuk ajdodlarimiz",
     unlocked: false,
     completed: false,
     highScore: 0,
     questions: [
-      { id: 'l9q1', subject: 'Mantiq', text: "Sutkaning qancha qismi o'tganini hisoblashda nimadan foydalanamiz?", options: ["Metr", "Soat", "Kilogramm"], correctAnswer: "Soat" },
-      { id: 'l9q2', subject: 'Ona tili', text: "\"Tili yo'qda dil yo'q\" she'ri muallifi kim?", options: ["Muhammad Yusuf", "Oybek", "Abdulla Oripov"], correctAnswer: "Abdulla Oripov" },
-      { id: 'l9q3', subject: 'Matematika', text: "Aylana markazidan o'tuvchi va ikki nuqtani tutashtiruvchi kesma nima?", options: ["Radius", "Diametr", "Yoy"], correctAnswer: "Diametr" },
-      { id: 'l9q4', subject: 'Ona tili', text: "O'zbek alifbosidagi 'ng' tovushi qanday tovush?", options: ["Lab undoshi", "Til orqa undoshi", "Unli"], correctAnswer: "Til orqa undoshi" },
-      { id: 'l9q5', subject: 'Mantiq', text: "\"Kitob o'qish asabni tinchlantiradi\" fikri to'g'rimi?", options: ["Ha", "Yo'q", "Isbotlanmagan"], correctAnswer: "Ha" },
-      { id: 'l10q6', subject: 'Tarix', text: "\"Najmiddin Kubro\" qaysi shahar mudofaasida jasorat ko'rsatgan?", options: ["Buxoro", "Urganch", "Samarqand"], correctAnswer: "Urganch" },
-      { id: 'l10q7', subject: 'Matematika', text: "1 m² necha dm²?", options: ["10", "100", "1000"], correctAnswer: "100" },
-      { id: 'l10q8', subject: 'Matematika', text: "Aralash sonni noto'g'ri kasrga aylantirishda butun qism nimaga ko'paytiriladi?", options: ["Suratga", "Maxrajga", "Kasr chizig'iga"], correctAnswer: "Maxrajga" },
-      { id: 'l10q9', subject: 'Matematika', text: "Sirkul nima uchun kerak?", options: ["Kesma chizishga", "Aylana chizishga", "Burchak o'lchashga"], correctAnswer: "Aylana chizishga" },
-      { id: 'l10q10', subject: 'Tarix', text: "\"Odamiylik alomati to'rt sifatdir\" kimning kitobida yozilgan?", options: ["Ibn Sino", "Azizuddin Nasafiy", "Alisher Navoiy"], correctAnswer: "Azizuddin Nasafiy" }
+      { id: 'l9q1', subject: 'Tarix', text: "Jaloliddin Manguberdi qanday sarkarda bo'lganligi haqida Shahobiddin Nasaviy nima degan?", options: ["U mard, botir, irodali va o'zini yo'qotib qo'ymaydigan sarkarda edi.", "U faqat turkiy tilda so'zlashardi.", "U qo'rqoq va ojiz edi."], correctAnswer: "U mard, botir, irodali va o'zini yo'qotib qo'ymaydigan sarkarda edi." },
+      { id: 'l9q2', subject: 'Tarix', text: "\"Yo Vatan, yo o'lim!\" shiori ostida shaharni mudofaa qilgan vatanparvar alloma kim?", options: ["Bahouddin Naqshband", "Alisher Navoiy", "Najmiddin Kubro"], correctAnswer: "Najmiddin Kubro" },
+      { id: 'l9q3', subject: 'Tarix', text: "VIII asrdan 1929-yilgacha o'zbek xalqi qaysi yozuvdan foydalangan?", options: ["Kirill yozuvi", "Eski o'zbek yozuvi (arab yozuvi asosidagi)", "Lotin yozuvi"], correctAnswer: "Eski o'zbek yozuvi (arab yozuvi asosidagi)" },
+      { id: 'l9q4', subject: 'Tarix', text: "\"Dast ba kor-u dil ba yor!\" (Qo'ling ishda va diling Allohda bo'lsin) g'oyasi kimga tegishli?", options: ["Bahouddin Naqshband", "Amir Temur", "Mirzo Ulug'bek"], correctAnswer: "Bahouddin Naqshband" },
+      { id: 'l9q5', subject: 'Tarix', text: "Dunyoga keng tarqalgan \"arab raqamlari\"ning asl kelib chiqishi qaysi xalqqa borib taqaladi?", options: ["Arablarga", "Hindlarga", "Inglizlarga"], correctAnswer: "Hindlarga" },
+      { id: 'l9q6', subject: 'Tarix', text: "Toshkent kuranti qaysi usta ishtirokida qurilgan?", options: ["Usta Shirin", "Usta Boqiy", "Usta Ma'mur"], correctAnswer: "Usta Shirin" },
+      { id: 'l9q7', subject: 'Tarix', text: "Alisher Navoiy yashagan davrda xalqimiz qaysi yozuvdan foydalangan?", options: ["Sug'd yozuvi", "Arab yozuvi", "O'rxun-enasoy yozuvi"], correctAnswer: "Arab yozuvi" },
+      { id: 'l9q8', subject: 'Tarix', text: "Sharq va Markaziy Osiyo madaniyatida bosh qonun vazifasini bajargan asar qaysi?", options: ["\"Turkiy guliston yoxud axloq\"", "Amir Temurning \"Tuzuklar\"i", "\"Boburnoma\""], correctAnswer: "Amir Temurning \"Tuzuklar\"i" },
+      { id: 'l9q9', subject: 'Tarix', text: "Alp Er To'nga qaysi qadimgi davlatning asoschisi hisoblanadi?", options: ["Xorazmshohlar", "Turon davlati", "Temuriylar davlati"], correctAnswer: "Turon davlati" },
+      { id: 'l9q10', subject: 'Tarix', text: "Robotni birinchi bo'lib ixtiro qilgan musulmon olimi kim?", options: ["Al-Xorazmiy", "Al-Jazariy", "Beruniy"], correctAnswer: "Al-Jazariy" }
     ]
   },
   {
