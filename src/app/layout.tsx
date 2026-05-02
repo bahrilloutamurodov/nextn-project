@@ -2,8 +2,8 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'EduQuest Ascent - 5-sinf uchun interaktiv ta\'lim',
-  description: '5-sinf o\'quvchilari uchun 10 darajali interaktiv ta\'lim platformasi',
+  title: "5-sinflar test o'yini - Interaktiv ta'lim",
+  description: "5-sinf o'quvchilari uchun 10 darajali interaktiv test o'yini platformasi",
 };
 
 export default function RootLayout({

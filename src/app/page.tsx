@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -57,7 +56,7 @@ export default function WelcomePage() {
           <div className="w-16 h-16 bg-[#2D2A38] rounded-full flex items-center justify-center mx-auto mb-6">
             <GraduationCap className="w-8 h-8 text-primary" />
           </div>
-          <CardTitle className="text-3xl font-headline text-primary mb-2">EduQuest Ascent</CardTitle>
+          <CardTitle className="text-3xl font-headline text-primary mb-2">5-sinflar test o'yini</CardTitle>
           <CardDescription className="text-muted-foreground text-sm">
             Sarguzashtingizni boshlash uchun ismingizni kiriting
           </CardDescription>
@@ -98,7 +97,7 @@ export default function WelcomePage() {
             </div>
 
             <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-headline text-lg rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
-              Sarguzashtni Boshlash
+              O'yinni Boshlash
               <Rocket className="ml-2 w-5 h-5" />
             </Button>
           </form>

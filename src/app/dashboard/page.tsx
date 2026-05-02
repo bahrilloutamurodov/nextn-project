@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getUserProfile, getLevels } from '@/lib/store';
 import { Level } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Lock, CheckCircle2, Star, User, Settings, LogOut, ShieldCheck } from 'lucide-react';
+import { Lock, CheckCircle2, Star, User, LogOut, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LevelMapPage() {
@@ -66,7 +65,7 @@ export default function LevelMapPage() {
 
       <main className="max-w-4xl mx-auto p-6">
         <div className="mb-12 text-center">
-          <h2 className="text-4xl font-headline text-primary mb-4">EduQuest Xaritasi</h2>
+          <h2 className="text-4xl font-headline text-primary mb-4">5-sinflar test o'yini</h2>
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Star className="w-4 h-4 text-accent" />
             <span>Bosqichlarni yakunlang va yangi marralarni zabt eting!</span>
