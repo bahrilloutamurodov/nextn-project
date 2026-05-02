@@ -1,4 +1,4 @@
-export type Subject = 'Ona tili' | 'Matematika' | 'Ingliz tili' | 'Tarix';
+export type Subject = 'Ona tili' | 'Matematika' | 'Ingliz tili' | 'Tarix' | 'Mantiq' | 'Tabiat';
 
 export interface Question {
   id: string;
