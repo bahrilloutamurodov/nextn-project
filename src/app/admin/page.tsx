@@ -16,11 +16,11 @@ import {
 } from '@/components/ui/select';
 import { 
   Users, Target, Trophy, Download, ArrowLeft, ShieldCheck, 
-  BarChart, Search, LogOut, Loader2, Calendar, Filter
+  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter
 } from 'lucide-react';
 import { 
-  BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip as ReTooltip, ResponsiveContainer, Cell 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip as ReTooltip, ResponsiveContainer, Cell, LabelList
 } from 'recharts';
 import { toast } from '@/hooks/use-toast';
 
@@ -52,22 +52,27 @@ export default function AdminDashboard() {
     return { totalStudents, avgScore, level10Count };
   }, [users, results]);
 
-  // Chart data: Subject difficulty
+  // Chart data: Subject performance
   const subjectStats = useMemo(() => {
-    if (!results) return [];
-    const subjects: Record<string, { total: number, count: number }> = {};
+    const subjects = ['Matematika', 'Ona tili', 'Ingliz tili', 'Tarix'];
+    const dataMap: Record<string, { total: number, count: number }> = {};
     
-    results.forEach(r => {
-      const sub = r.subject || 'Aralash';
-      if (!subjects[sub]) subjects[sub] = { total: 0, count: 0 };
-      subjects[sub].total += r.score || 0;
-      subjects[sub].count += 1;
-    });
+    subjects.forEach(s => dataMap[s] = { total: 0, count: 0 });
 
-    return Object.entries(subjects).map(([name, data]) => ({
+    if (results) {
+      results.forEach(r => {
+        const sub = r.subject;
+        if (dataMap[sub]) {
+          dataMap[sub].total += r.score || 0;
+          dataMap[sub].count += 1;
+        }
+      });
+    }
+
+    return subjects.map(name => ({
       name,
-      avg: Math.round(data.total / data.count)
-    })).sort((a, b) => a.avg - b.avg);
+      avg: dataMap[name].count > 0 ? Math.round(dataMap[name].total / dataMap[name].count) : 0
+    }));
   }, [results]);
 
   // Available grades for filter
@@ -115,7 +120,7 @@ export default function AdminDashboard() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `oqituvchi_hisoboti_${selectedGrade}_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute("download", `oqituvchi_hisoboti_${new Date().toLocaleDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -309,49 +314,54 @@ export default function AdminDashboard() {
           <Card className="bg-[#1A1921] border-white/5 h-fit">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart className="w-5 h-5 text-primary" />
+                <ChartIcon className="w-5 h-5 text-primary" />
                 Fanlararo Tahlil
               </CardTitle>
               <CardDescription>O'rtacha o'zlashtirish (%)</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] w-full">
+              <div className="h-[300px] w-full mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ReBarChart data={subjectStats} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#24232C" horizontal={false} />
-                    <XAxis type="number" hide domain={[0, 100]} />
-                    <YAxis 
+                  <BarChart data={subjectStats} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#24232C" vertical={false} />
+                    <XAxis 
                       dataKey="name" 
-                      type="category" 
                       axisLine={false} 
                       tickLine={false} 
-                      width={100} 
-                      tick={{ fill: '#888', fontSize: 12 }} 
+                      tick={{ fill: '#888', fontSize: 11 }} 
+                    />
+                    <YAxis 
+                      domain={[0, 100]} 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#888', fontSize: 11 }} 
                     />
                     <ReTooltip 
                       cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                       contentStyle={{ backgroundColor: '#1A1921', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                     />
-                    <Bar dataKey="avg" radius={[0, 4, 4, 0]} barSize={20}>
+                    <Bar dataKey="avg" radius={[6, 6, 0, 0]} barSize={40}>
                       {subjectStats.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.avg < 60 ? '#ef4444' : '#BA6AFF'} />
+                        <Cell key={`cell-${index}`} fill={entry.avg < 50 ? '#ef4444' : entry.avg < 80 ? '#FBA130' : '#BA6AFF'} />
                       ))}
+                      <LabelList dataKey="avg" position="top" fill="#fff" fontSize={10} formatter={(v: number) => `${v}%`} />
                     </Bar>
-                  </ReBarChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-6 space-y-3 pt-6 border-t border-white/5">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Eng qiyin fan:</span>
-                  <Badge variant="destructive" className="bg-red-500/10 text-red-500 border-red-500/20">
-                    {subjectStats[0]?.name || '-'}
-                  </Badge>
+              
+              <div className="mt-8 grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase">Eng yuqori</p>
+                  <p className="text-sm font-headline text-primary">
+                    {subjectStats.reduce((prev, current) => (prev.avg > current.avg) ? prev : current).name}
+                  </p>
                 </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Eng oson fan:</span>
-                  <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
-                    {subjectStats[subjectStats.length - 1]?.name || '-'}
-                  </Badge>
+                <div className="space-y-1 text-right">
+                  <p className="text-[10px] text-muted-foreground uppercase">Eng past</p>
+                  <p className="text-sm font-headline text-red-500">
+                    {subjectStats.reduce((prev, current) => (prev.avg < current.avg && prev.avg > 0) ? prev : current).name || '-'}
+                  </p>
                 </div>
               </div>
             </CardContent>
