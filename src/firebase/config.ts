@@ -1,8 +1,8 @@
 export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  apiKey: "AIzaSyDJaM8ixgsQjHkLwyRetwJ5Uj0mUOpNpbc",
+  authDomain: "maktab-ai-uz-2026.firebaseapp.com",
+  projectId: "maktab-ai-uz-2026",
+  storageBucket: "maktab-ai-uz-2026.firebasestorage.app",
+  messagingSenderId: "1002400191195",
+  appId: "1:1002400191195:web:7bab7ae62d6e35e43d32fe"
 };
