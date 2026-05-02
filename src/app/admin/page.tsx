@@ -34,6 +34,8 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   // Xavfsizlik skripti: sessiyani tekshirish
   useEffect(() => {
@@ -120,6 +122,13 @@ export default function AdminDashboard() {
       return matchesSearch && matchesGrade;
     });
   }, [users, searchTerm, selectedGrade]);
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredUsers, currentPage]);
 
   const exportToCSV = () => {
     if (!filteredUsers.length) {
@@ -316,11 +325,17 @@ export default function AdminDashboard() {
                       placeholder="Ism bo'yicha qidirish..." 
                       className="pl-9 bg-[#24232C] border-none w-full sm:w-48 h-10 rounded-xl"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                      }}
                     />
                   </div>
                   
-                  <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+                  <Select value={selectedGrade} onValueChange={(val) => {
+                    setSelectedGrade(val);
+                    setCurrentPage(1);
+                  }}>
                     <SelectTrigger className="bg-[#24232C] border-none w-full sm:w-32 h-10 rounded-xl">
                       <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
                       <SelectValue placeholder="Sinf" />
@@ -348,7 +363,7 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {filteredUsers.map((user) => (
+                    {paginatedUsers.map((user) => (
                       <tr key={user.id} className="hover:bg-white/5 transition-colors group">
                         <td className="px-6 py-4">
                           <div className="font-medium text-white group-hover:text-primary transition-colors">{user.name}</div>
@@ -377,6 +392,37 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-white/5 gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Jami: {filteredUsers.length} ta o'quvchi
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                      disabled={currentPage === 1}
+                      className="border-white/10 hover:bg-white/5 text-white"
+                    >
+                      Oldingi
+                    </Button>
+                    <div className="text-sm text-muted-foreground px-4">
+                      {currentPage} / {totalPages}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                      disabled={currentPage >= totalPages}
+                      className="border-white/10 hover:bg-white/5 text-white"
+                    >
+                      Keyingi
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
