@@ -1,0 +1,46 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Foydalanuvchi profili va umumiy natijalari",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "grade": { "type": "string" },
+        "currentLevel": { "type": "number" },
+        "totalScore": { "type": "number" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "grade"]
+    },
+    "QuizResult": {
+      "title": "QuizResult",
+      "description": "Har bir bosqich yakunidagi natija",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "levelId": { "type": "number" },
+        "score": { "type": "number" },
+        "subject": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "levelId", "score"]
+    }
+  },
+  "auth": {
+    "providers": ["anonymous"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "#/entities/UserProfile",
+      "description": "Foydalanuvchilar ro'yxati"
+    },
+    "/results/{resultId}": {
+      "schema": "#/entities/QuizResult",
+      "description": "Test natijalari tarixi"
+    }
+  }
+}

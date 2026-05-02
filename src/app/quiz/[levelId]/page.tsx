@@ -1,9 +1,12 @@
+
 "use client"
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, use, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getLevels, saveLevels, getUserProfile, saveUserProfile } from '@/lib/store';
-import { Level, Question, Subject } from '@/lib/types';
+import { Level } from '@/lib/types';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +18,7 @@ import { Lightbulb, ArrowLeft, ArrowRight, HelpCircle, Loader2 } from 'lucide-re
 
 export default function QuizPage({ params }: { params: Promise<{ levelId: string }> }) {
   const router = useRouter();
+  const db = useFirestore();
   const { levelId } = use(params);
   
   const [level, setLevel] = useState<Level | null>(null);
@@ -100,10 +104,11 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
   const handleMiniGameComplete = () => {
     const levels = getLevels();
     const currentLevelIdx = levels.findIndex(l => l.id === parseInt(levelId));
+    const calculatedScorePercent = (score / (level?.questions.length || 1)) * 100;
     
     // Update current level as completed
     levels[currentLevelIdx].completed = true;
-    levels[currentLevelIdx].highScore = Math.max(levels[currentLevelIdx].highScore, (score / 10) * 100);
+    levels[currentLevelIdx].highScore = Math.max(levels[currentLevelIdx].highScore, calculatedScorePercent);
     
     // Unlock next level
     if (currentLevelIdx < levels.length - 1) {
@@ -119,7 +124,30 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
       if (!profile.completedLevels.includes(parseInt(levelId))) {
         profile.completedLevels.push(parseInt(levelId));
       }
+      profile.currentLevel = Math.max(profile.currentLevel, parseInt(levelId) + 1);
       saveUserProfile(profile);
+
+      // Save to Firestore
+      if (db) {
+        const userId = localStorage.getItem('firebase_user_id');
+        if (userId) {
+          const userRef = doc(db, 'users', userId);
+          updateDoc(userRef, {
+            totalScore: profile.totalScore,
+            currentLevel: profile.currentLevel,
+            lastActive: serverTimestamp()
+          });
+
+          addDoc(collection(db, 'results'), {
+            userId,
+            userName: profile.name,
+            levelId: parseInt(levelId),
+            score: calculatedScorePercent,
+            subject: level.questions[0]?.subject || 'Aralash',
+            timestamp: serverTimestamp()
+          });
+        }
+      }
     }
 
     router.push('/dashboard');
@@ -129,7 +157,7 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
 
   if (showMiniGame) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-[#0F0E13] flex flex-col items-center justify-center p-6">
         <MiniGame onComplete={handleMiniGameComplete} />
       </div>
     );
@@ -139,7 +167,7 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
   const progress = ((currentQuestionIndex + 1) / level.questions.length) * 100;
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-8">
+    <div className="min-h-screen bg-[#0F0E13] p-4 sm:p-8">
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <Button variant="ghost" onClick={() => router.push('/dashboard')} className="text-muted-foreground hover:text-white">

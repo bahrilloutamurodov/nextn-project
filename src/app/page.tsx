@@ -1,8 +1,11 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUserProfile, saveUserProfile } from '@/lib/store';
+import { useFirestore } from '@/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,6 +13,7 @@ import { Rocket, GraduationCap } from 'lucide-react';
 
 export default function WelcomePage() {
   const router = useRouter();
+  const db = useFirestore();
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('5-Sinf');
   const [loading, setLoading] = useState(true);
@@ -23,32 +27,47 @@ export default function WelcomePage() {
     }
   }, [router]);
 
-  const handleStart = (e: React.FormEvent) => {
+  const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    saveUserProfile({
+    const profileData = {
       name,
       grade,
       currentLevel: 1,
       totalScore: 0,
       completedLevels: [],
       averageScore: 0,
-      totalTime: 0
-    });
+      totalTime: 0,
+      lastActive: new Date().toISOString()
+    };
+
+    // Save to LocalStorage
+    saveUserProfile(profileData);
+
+    // Save to Firestore (Anonymous user simulation using name+timestamp as ID if not authenticated)
+    if (db) {
+      const tempId = name.replace(/\s+/g, '-').toLowerCase() + '-' + Date.now();
+      localStorage.setItem('firebase_user_id', tempId);
+      
+      setDoc(doc(db, 'users', tempId), {
+        ...profileData,
+        createdAt: serverTimestamp(),
+        lastActive: serverTimestamp()
+      }, { merge: true });
+    }
 
     router.push('/dashboard');
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-primary">
+    <div className="min-h-screen flex items-center justify-center bg-[#0F0E13] text-primary">
       <div className="animate-pulse font-headline text-2xl">Yuklanmoqda...</div>
     </div>
   );
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-[#0F0E13]">
-      {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
       
       <Card className="w-full max-w-[440px] bg-[#1A1921] border-white/5 shadow-2xl relative z-10 p-4">
