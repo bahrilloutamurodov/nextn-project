@@ -132,11 +132,11 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
         const userId = localStorage.getItem('firebase_user_id');
         if (userId) {
           const userRef = doc(db, 'users', userId);
-          updateDoc(userRef, {
+          setDoc(userRef, {
             totalScore: profile.totalScore,
             currentLevel: profile.currentLevel,
             lastActive: serverTimestamp()
-          });
+          }, { merge: true });
 
           addDoc(collection(db, 'results'), {
             userId,

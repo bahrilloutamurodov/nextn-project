@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -33,6 +33,7 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [selectedGrade, setSelectedGrade] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
@@ -117,11 +118,11 @@ export default function AdminDashboard() {
   const filteredUsers = useMemo(() => {
     if (!users) return [];
     return users.filter(u => {
-      const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = u.name.toLowerCase().includes(deferredSearchTerm.toLowerCase());
       const matchesGrade = selectedGrade === 'all' || u.grade === selectedGrade;
       return matchesSearch && matchesGrade;
     });
-  }, [users, searchTerm, selectedGrade]);
+  }, [users, deferredSearchTerm, selectedGrade]);
 
   const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
   
