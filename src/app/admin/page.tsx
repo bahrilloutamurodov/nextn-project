@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { 
   Users, Target, Trophy, Download, ArrowLeft, ShieldCheck, 
-  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter, UserCog, Lock
+  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter, UserCog, Lock, AlertCircle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -30,6 +30,7 @@ export default function AdminDashboard() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminId, setAdminId] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
 
@@ -48,7 +49,7 @@ export default function AdminDashboard() {
     const avgScore = results.length > 0 
       ? (results.reduce((acc, r) => acc + (r.score || 0), 0) / results.length).toFixed(1) 
       : 0;
-    const level10Count = users.filter(u => u.currentLevel >= 10).length;
+    const level10Count = users.filter(u => (u.currentLevel || 1) >= 10).length;
 
     return { totalStudents, avgScore, level10Count };
   }, [users, results]);
@@ -85,12 +86,13 @@ export default function AdminDashboard() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple validation for MVP
+    setError('');
+    
     if (adminId === 'admin' && password === 'admin123') {
       setIsAdminAuthenticated(true);
       toast({ title: "Muvaffaqiyatli kirish", description: "O'qituvchi boshqaruv paneliga xush kelibsiz." });
     } else {
-      toast({ variant: "destructive", title: "Kirishda xatolik", description: "Admin ID yoki parol noto'g'ri!" });
+      setError('Admin ID yoki parol noto\'g\'ri!');
     }
   };
 
@@ -131,60 +133,75 @@ export default function AdminDashboard() {
   if (!isAdminAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0F0E13] flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-accent/10 rounded-full blur-[100px] animate-pulse delay-1000" />
+        {/* Animated background elements for ambiance */}
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/20 rounded-full blur-[140px] animate-pulse" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-accent/10 rounded-full blur-[120px] animate-pulse delay-700" />
 
-        <Card className="w-full max-w-md bg-[#1A1921] border-white/5 shadow-2xl z-10">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3">
-              <ShieldCheck className="text-primary w-8 h-8" />
+        <Card className="w-full max-w-md bg-black/40 backdrop-blur-2xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-10 overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
+          
+          <CardHeader className="text-center pt-10 pb-6">
+            <div className="w-20 h-20 bg-primary/20 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-6 border border-primary/30 shadow-[0_0_20px_rgba(186,106,255,0.2)]">
+              <ShieldCheck className="text-primary w-10 h-10" />
             </div>
-            <CardTitle className="text-3xl font-headline text-white">Admin Kirish</CardTitle>
-            <CardDescription>O'qituvchi boshqaruv paneliga kirish uchun ma'lumotlarni kiriting</CardDescription>
+            <CardTitle className="text-3xl font-headline text-white tracking-tight">O'qituvchi Kirishi</CardTitle>
+            <CardDescription className="text-muted-foreground/70 mt-2">Tizimni boshqarish uchun ma'lumotlarni kiriting</CardDescription>
           </CardHeader>
-          <CardContent>
+          
+          <CardContent className="px-8 pb-10">
             <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Admin ID</label>
-                  <div className="relative">
-                    <UserCog className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] ml-1">Admin ID</label>
+                  <div className="relative group">
+                    <UserCog className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                     <Input 
-                      placeholder="Admin foydalanuvchi nomi" 
+                      placeholder="Admin login" 
                       value={adminId}
                       onChange={(e) => setAdminId(e.target.value)}
-                      className="bg-[#24232C] border-white/5 text-white pl-10 h-12"
+                      className="bg-white/5 border-white/10 text-white pl-12 h-14 rounded-2xl focus:border-primary/50 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/30"
                       required
                     />
                   </div>
                 </div>
+                
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Parol</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] ml-1">Parol</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                     <Input 
                       type="password" 
-                      placeholder="Admin paroli" 
+                      placeholder="••••••••" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="bg-[#24232C] border-white/5 text-white pl-10 h-12"
+                      className="bg-white/5 border-white/10 text-white pl-12 h-14 rounded-2xl focus:border-primary/50 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/30"
                       required
                     />
                   </div>
                 </div>
               </div>
-              <Button type="submit" className="w-full btn-primary h-14 text-lg">
-                Kirish
-              </Button>
-              <Button 
-                variant="ghost" 
-                type="button"
-                onClick={() => router.push('/dashboard')} 
-                className="w-full text-muted-foreground hover:text-white"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" /> Bosh sahifaga qaytish
-              </Button>
+
+              {error && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-in fade-in slide-in-from-top-1">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <p className="font-medium">{error}</p>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Button type="submit" className="w-full btn-primary h-14 text-lg rounded-2xl">
+                  Tizimga kirish
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  type="button"
+                  onClick={() => router.push('/')} 
+                  className="w-full mt-4 text-muted-foreground hover:text-white hover:bg-white/5 h-12 rounded-xl"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Bosh sahifaga qaytish
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
