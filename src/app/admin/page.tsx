@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { 
   Users, Target, Trophy, Download, ArrowLeft, ShieldCheck, 
-  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter
+  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter, UserCog, Lock
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -28,6 +28,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const db = useFirestore();
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminId, setAdminId] = useState('');
   const [password, setPassword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
@@ -84,11 +85,12 @@ export default function AdminDashboard() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') {
+    // Simple validation for MVP
+    if (adminId === 'admin' && password === 'admin123') {
       setIsAdminAuthenticated(true);
-      toast({ title: "Xush kelibsiz", description: "Admin paneliga kirdingiz." });
+      toast({ title: "Muvaffaqiyatli kirish", description: "O'qituvchi boshqaruv paneliga xush kelibsiz." });
     } else {
-      toast({ variant: "destructive", title: "Xato", description: "Parol noto'g'ri!" });
+      toast({ variant: "destructive", title: "Kirishda xatolik", description: "Admin ID yoki parol noto'g'ri!" });
     }
   };
 
@@ -128,27 +130,60 @@ export default function AdminDashboard() {
 
   if (!isAdminAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0F0E13] flex items-center justify-center p-6">
-        <Card className="w-full max-w-md bg-[#1A1921] border-white/5 shadow-2xl">
+      <div className="min-h-screen bg-[#0F0E13] flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-accent/10 rounded-full blur-[100px] animate-pulse delay-1000" />
+
+        <Card className="w-full max-w-md bg-[#1A1921] border-white/5 shadow-2xl z-10">
           <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3">
               <ShieldCheck className="text-primary w-8 h-8" />
             </div>
-            <CardTitle className="text-2xl font-headline text-white">Admin Kirish</CardTitle>
-            <CardDescription>Boshqaruv paneliga kirish uchun parolni kiriting</CardDescription>
+            <CardTitle className="text-3xl font-headline text-white">Admin Kirish</CardTitle>
+            <CardDescription>O'qituvchi boshqaruv paneliga kirish uchun ma'lumotlarni kiriting</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <Input 
-                type="password" 
-                placeholder="Admin paroli" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-[#24232C] border-white/5 text-white"
-              />
-              <Button type="submit" className="w-full btn-primary h-12">Kirish</Button>
-              <Button variant="ghost" onClick={() => router.push('/dashboard')} className="w-full text-muted-foreground">
-                <ArrowLeft className="w-4 h-4 mr-2" /> Orqaga qaytish
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Admin ID</label>
+                  <div className="relative">
+                    <UserCog className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Admin foydalanuvchi nomi" 
+                      value={adminId}
+                      onChange={(e) => setAdminId(e.target.value)}
+                      className="bg-[#24232C] border-white/5 text-white pl-10 h-12"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Parol</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      type="password" 
+                      placeholder="Admin paroli" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-[#24232C] border-white/5 text-white pl-10 h-12"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              <Button type="submit" className="w-full btn-primary h-14 text-lg">
+                Kirish
+              </Button>
+              <Button 
+                variant="ghost" 
+                type="button"
+                onClick={() => router.push('/dashboard')} 
+                className="w-full text-muted-foreground hover:text-white"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" /> Bosh sahifaga qaytish
               </Button>
             </form>
           </CardContent>
@@ -162,15 +197,20 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-8">
-          <div>
-            <h1 className="text-3xl font-headline text-primary">Admin Dashboard</h1>
-            <p className="text-muted-foreground mt-1">O'quvchilar natijalari va monitoring</p>
+          <div className="flex items-center gap-4">
+             <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+              <ShieldCheck className="text-primary w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-headline text-primary">Admin Dashboard</h1>
+              <p className="text-muted-foreground mt-1">O'quvchilar natijalari va monitoring</p>
+            </div>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={exportToCSV} className="border-white/10 hover:bg-white/5 h-11">
+            <Button variant="outline" onClick={exportToCSV} className="border-white/10 hover:bg-white/5 h-11 rounded-xl">
               <Download className="w-4 h-4 mr-2" /> Eksport (CSV)
             </Button>
-            <Button variant="destructive" onClick={() => setIsAdminAuthenticated(false)} size="icon" className="h-11 w-11">
+            <Button variant="destructive" onClick={() => setIsAdminAuthenticated(false)} size="icon" className="h-11 w-11 rounded-xl">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -224,11 +264,11 @@ export default function AdminDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Student Table Section */}
-          <Card className="lg:col-span-2 bg-[#1A1921] border-white/5 overflow-hidden flex flex-col">
+          <Card className="lg:col-span-2 bg-[#1A1921] border-white/5 overflow-hidden flex flex-col rounded-2xl">
             <CardHeader className="border-b border-white/5 pb-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle>O'quvchilar Natijalari</CardTitle>
+                  <CardTitle className="text-xl">O'quvchilar Natijalari</CardTitle>
                   <CardDescription>Sinflar bo'yicha saralangan ro'yxat</CardDescription>
                 </div>
                 
@@ -236,15 +276,15 @@ export default function AdminDashboard() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input 
-                      placeholder="Ism..." 
-                      className="pl-9 bg-[#24232C] border-none w-full sm:w-48 h-10"
+                      placeholder="Ism bo'yicha qidirish..." 
+                      className="pl-9 bg-[#24232C] border-none w-full sm:w-48 h-10 rounded-xl"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   
                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                    <SelectTrigger className="bg-[#24232C] border-none w-full sm:w-32 h-10">
+                    <SelectTrigger className="bg-[#24232C] border-none w-full sm:w-32 h-10 rounded-xl">
                       <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
                       <SelectValue placeholder="Sinf" />
                     </SelectTrigger>
@@ -277,7 +317,7 @@ export default function AdminDashboard() {
                           <div className="font-medium text-white group-hover:text-primary transition-colors">{user.name}</div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <Badge variant="outline" className="border-white/10 text-muted-foreground">{user.grade}</Badge>
+                          <Badge variant="outline" className="border-white/10 text-muted-foreground px-3 py-1">{user.grade}</Badge>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto text-xs font-bold ${
@@ -286,11 +326,11 @@ export default function AdminDashboard() {
                             {user.currentLevel || 1}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right font-headline text-accent">
+                        <td className="px-6 py-4 text-right font-headline text-accent text-lg">
                           {user.totalScore || 0}
                         </td>
                         <td className="px-6 py-4 text-right text-xs text-muted-foreground">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-2">
                             <Calendar className="w-3 h-3" />
                             {user.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'Noma\'lum'}
                           </div>
@@ -311,9 +351,9 @@ export default function AdminDashboard() {
           </Card>
 
           {/* Chart Section */}
-          <Card className="bg-[#1A1921] border-white/5 h-fit">
+          <Card className="bg-[#1A1921] border-white/5 h-fit rounded-2xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-xl">
                 <ChartIcon className="w-5 h-5 text-primary" />
                 Fanlararo Tahlil
               </CardTitle>
@@ -338,7 +378,7 @@ export default function AdminDashboard() {
                     />
                     <ReTooltip 
                       cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                      contentStyle={{ backgroundColor: '#1A1921', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                      contentStyle={{ backgroundColor: '#1A1921', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
                     />
                     <Bar dataKey="avg" radius={[6, 6, 0, 0]} barSize={40}>
                       {subjectStats.map((entry, index) => (
@@ -352,13 +392,13 @@ export default function AdminDashboard() {
               
               <div className="mt-8 grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
                 <div className="space-y-1">
-                  <p className="text-[10px] text-muted-foreground uppercase">Eng yuqori</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Eng yuqori natija</p>
                   <p className="text-sm font-headline text-primary">
                     {subjectStats.reduce((prev, current) => (prev.avg > current.avg) ? prev : current).name}
                   </p>
                 </div>
                 <div className="space-y-1 text-right">
-                  <p className="text-[10px] text-muted-foreground uppercase">Eng past</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Eng past natija</p>
                   <p className="text-sm font-headline text-red-500">
                     {subjectStats.reduce((prev, current) => (prev.avg < current.avg && prev.avg > 0) ? prev : current).name || '-'}
                   </p>
