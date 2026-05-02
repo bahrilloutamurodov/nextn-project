@@ -9,7 +9,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Rocket, GraduationCap } from 'lucide-react';
+import { Rocket, GraduationCap, Lock } from 'lucide-react';
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -67,7 +67,8 @@ export default function WelcomePage() {
   );
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-[#0F0E13]">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-[#0F0E13] relative overflow-hidden">
+      {/* Decorative background glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
       
       <Card className="w-full max-w-[440px] bg-[#1A1921] border-white/5 shadow-2xl relative z-10 p-4">
@@ -122,6 +123,16 @@ export default function WelcomePage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Admin Login Shortcut - Subtle and positioned in bottom right */}
+      <button
+        onClick={() => router.push('/admin')}
+        className="absolute bottom-6 right-6 flex items-center gap-2 text-[11px] font-medium text-muted-foreground/30 hover:text-muted-foreground/80 transition-all duration-300 group"
+      >
+        <Lock className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity">O'qituvchi uchun</span>
+        Admin
+      </button>
     </main>
   );
 }
