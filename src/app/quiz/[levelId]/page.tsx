@@ -67,6 +67,22 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
     });
     setScore(correctCount);
     setIsFinished(true);
+
+    // Barcha test natijalarini shu zahoti Firestore'ga yozamiz (o'tgan bo'lsa ham, yiqilgan bo'lsa ham)
+    if (db) {
+      const userId = localStorage.getItem('firebase_user_id');
+      const profile = getUserProfile();
+      if (userId && profile) {
+        addDoc(collection(db, 'results'), {
+          userId,
+          userName: profile.name,
+          levelId: parseInt(levelId),
+          score: (correctCount / (level.questions.length || 1)) * 100,
+          subject: level.questions[0]?.subject || 'Aralash',
+          timestamp: serverTimestamp()
+        }).catch(err => console.error("Error saving result:", err));
+      }
+    }
   };
 
   const handleGetHint = async () => {
@@ -136,16 +152,7 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
             totalScore: profile.totalScore,
             currentLevel: profile.currentLevel,
             lastActive: serverTimestamp()
-          }, { merge: true });
-
-          addDoc(collection(db, 'results'), {
-            userId,
-            userName: profile.name,
-            levelId: parseInt(levelId),
-            score: calculatedScorePercent,
-            subject: level.questions[0]?.subject || 'Aralash',
-            timestamp: serverTimestamp()
-          });
+          }, { merge: true }).catch(err => console.error("Error updating user:", err));
         }
       }
     }

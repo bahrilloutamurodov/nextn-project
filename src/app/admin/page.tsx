@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { 
   Card, CardContent, CardHeader, CardTitle, CardDescription 
 } from '@/components/ui/card';
@@ -48,8 +48,8 @@ export default function AdminDashboard() {
   }, []);
 
   // Firebase Data
-  const usersQuery = useMemo(() => db ? query(collection(db, 'users'), orderBy('lastActive', 'desc')) : null, [db]);
-  const resultsQuery = useMemo(() => db ? query(collection(db, 'results'), orderBy('timestamp', 'desc')) : null, [db]);
+  const usersQuery = useMemo(() => db ? query(collection(db, 'users'), orderBy('lastActive', 'desc'), limit(500)) : null, [db]);
+  const resultsQuery = useMemo(() => db ? query(collection(db, 'results'), orderBy('timestamp', 'desc'), limit(500)) : null, [db]);
 
   const { data: users, loading: loadingUsers } = useCollection(usersQuery);
   const { data: results, loading: loadingResults } = useCollection(resultsQuery);
