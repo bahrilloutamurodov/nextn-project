@@ -34,3 +34,17 @@ export const resetProgress = () => {
     localStorage.removeItem(LEVELS_KEY);
   }
 };
+
+export const unlockAllLevels = () => {
+  const levels = getLevels();
+  const updated = levels.map(l => ({ ...l, unlocked: true }));
+  saveLevels(updated);
+  return updated;
+};
+
+export const lockAllLevels = () => {
+  const levels = getLevels();
+  const updated = levels.map((l, i) => ({ ...l, unlocked: i === 0, completed: false, highScore: 0 }));
+  saveLevels(updated);
+  return updated;
+};

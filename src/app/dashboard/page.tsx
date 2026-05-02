@@ -6,7 +6,7 @@ import { getUserProfile, getLevels } from '@/lib/store';
 import { Level } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Lock, CheckCircle2, Star, User, Settings, LogOut } from 'lucide-react';
+import { Lock, CheckCircle2, Star, User, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LevelMapPage() {
@@ -44,17 +44,23 @@ export default function LevelMapPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-xs text-muted-foreground uppercase tracking-wider">Jami Ball</span>
             <span className="text-xl font-headline text-accent">{profile.totalScore}</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => {
-            localStorage.clear();
-            router.push('/');
-          }}>
-            <LogOut className="w-5 h-5 text-muted-foreground hover:text-destructive" />
-          </Button>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/admin')} title="Admin Panel">
+              <ShieldCheck className="w-5 h-5 text-muted-foreground hover:text-primary" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => {
+              localStorage.clear();
+              router.push('/');
+            }} title="Chiqish">
+              <LogOut className="w-5 h-5 text-muted-foreground hover:text-destructive" />
+            </Button>
+          </div>
         </div>
       </header>
 
