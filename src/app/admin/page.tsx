@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -28,11 +28,21 @@ export default function AdminDashboard() {
   const router = useRouter();
   const db = useFirestore();
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [adminId, setAdminId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
+
+  // Xavfsizlik skripti: sessiyani tekshirish
+  useEffect(() => {
+    const authStatus = sessionStorage.getItem('admin_authenticated');
+    if (authStatus === 'true') {
+      setIsAdminAuthenticated(true);
+    }
+    setIsCheckingAuth(false);
+  }, []);
 
   // Firebase Data
   const usersQuery = useMemo(() => db ? query(collection(db, 'users'), orderBy('lastActive', 'desc')) : null, [db]);
@@ -77,7 +87,6 @@ export default function AdminDashboard() {
     }));
   }, [results]);
 
-  // Available grades for filter
   const availableGrades = useMemo(() => {
     if (!users) return [];
     const grades = Array.from(new Set(users.map(u => u.grade))).filter(Boolean);
@@ -89,11 +98,18 @@ export default function AdminDashboard() {
     setError('');
     
     if (adminId === 'admin' && password === 'admin123') {
+      sessionStorage.setItem('admin_authenticated', 'true');
       setIsAdminAuthenticated(true);
       toast({ title: "Muvaffaqiyatli kirish", description: "O'qituvchi boshqaruv paneliga xush kelibsiz." });
     } else {
       setError('Admin ID yoki parol noto\'g\'ri!');
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin_authenticated');
+    setIsAdminAuthenticated(false);
+    toast({ title: "Tizimdan chiqildi", description: "Admin sessiyasi yakunlandi." });
   };
 
   const filteredUsers = useMemo(() => {
@@ -130,10 +146,17 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0F0E13] flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary w-10 h-10" />
+      </div>
+    );
+  }
+
   if (!isAdminAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0F0E13] flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Animated background elements for ambiance */}
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/20 rounded-full blur-[140px] animate-pulse" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-accent/10 rounded-full blur-[120px] animate-pulse delay-700" />
 
@@ -199,7 +222,7 @@ export default function AdminDashboard() {
                   onClick={() => router.push('/')} 
                   className="w-full mt-4 text-muted-foreground hover:text-white hover:bg-white/5 h-12 rounded-xl"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Bosh sahifaga qaytish
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Bosh sahibaga qaytish
                 </Button>
               </div>
             </form>
@@ -212,7 +235,6 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#0F0E13] text-white p-6 sm:p-10">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-8">
           <div className="flex items-center gap-4">
              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
@@ -227,13 +249,13 @@ export default function AdminDashboard() {
             <Button variant="outline" onClick={exportToCSV} className="border-white/10 hover:bg-white/5 h-11 rounded-xl">
               <Download className="w-4 h-4 mr-2" /> Eksport (CSV)
             </Button>
-            <Button variant="destructive" onClick={() => setIsAdminAuthenticated(false)} size="icon" className="h-11 w-11 rounded-xl">
+            <Button variant="destructive" onClick={handleLogout} className="h-11 px-6 rounded-xl flex items-center gap-2">
               <LogOut className="w-4 h-4" />
+              Chiqish
             </Button>
           </div>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <Card className="bg-[#1A1921] border-white/5 glass-card">
             <CardContent className="pt-6">
@@ -274,13 +296,11 @@ export default function AdminDashboard() {
                   <Trophy className="text-primary" />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-4">10-darajaga yetganlar soni</p>
             </CardContent>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Student Table Section */}
           <Card className="lg:col-span-2 bg-[#1A1921] border-white/5 overflow-hidden flex flex-col rounded-2xl">
             <CardHeader className="border-b border-white/5 pb-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -354,20 +374,12 @@ export default function AdminDashboard() {
                         </td>
                       </tr>
                     ))}
-                    {filteredUsers.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-20 text-center text-muted-foreground italic">
-                          Hech qanday ma'lumot topilmadi
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
             </CardContent>
           </Card>
 
-          {/* Chart Section */}
           <Card className="bg-[#1A1921] border-white/5 h-fit rounded-2xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
@@ -405,21 +417,6 @@ export default function AdminDashboard() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-              
-              <div className="mt-8 grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
-                <div className="space-y-1">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Eng yuqori natija</p>
-                  <p className="text-sm font-headline text-primary">
-                    {subjectStats.reduce((prev, current) => (prev.avg > current.avg) ? prev : current).name}
-                  </p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Eng past natija</p>
-                  <p className="text-sm font-headline text-red-500">
-                    {subjectStats.reduce((prev, current) => (prev.avg < current.avg && prev.avg > 0) ? prev : current).name || '-'}
-                  </p>
-                </div>
               </div>
             </CardContent>
           </Card>
