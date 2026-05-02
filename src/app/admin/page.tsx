@@ -12,8 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from '@/components/ui/select';
+import { 
   Users, Target, Trophy, Download, ArrowLeft, ShieldCheck, 
-  BarChart, Search, LogOut, Loader2, Calendar
+  BarChart, Search, LogOut, Loader2, Calendar, Filter
 } from 'lucide-react';
 import { 
   BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -27,6 +30,7 @@ export default function AdminDashboard() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState('all');
 
   // Firebase Data
   const usersQuery = useMemo(() => db ? query(collection(db, 'users'), orderBy('lastActive', 'desc')) : null, [db]);
@@ -43,18 +47,18 @@ export default function AdminDashboard() {
     const avgScore = results.length > 0 
       ? (results.reduce((acc, r) => acc + (r.score || 0), 0) / results.length).toFixed(1) 
       : 0;
-    const level10Count = users.filter(u => u.currentLevel >= 10 || u.completedLevels?.length >= 10).length;
+    const level10Count = users.filter(u => u.currentLevel >= 10).length;
 
     return { totalStudents, avgScore, level10Count };
   }, [users, results]);
 
-  // Chart data: Subject difficulty (Lower score = harder)
+  // Chart data: Subject difficulty
   const subjectStats = useMemo(() => {
     if (!results) return [];
     const subjects: Record<string, { total: number, count: number }> = {};
     
     results.forEach(r => {
-      const sub = r.subject || 'Boshqa';
+      const sub = r.subject || 'Aralash';
       if (!subjects[sub]) subjects[sub] = { total: 0, count: 0 };
       subjects[sub].total += r.score || 0;
       subjects[sub].count += 1;
@@ -66,9 +70,16 @@ export default function AdminDashboard() {
     })).sort((a, b) => a.avg - b.avg);
   }, [results]);
 
+  // Available grades for filter
+  const availableGrades = useMemo(() => {
+    if (!users) return [];
+    const grades = Array.from(new Set(users.map(u => u.grade))).filter(Boolean);
+    return grades.sort();
+  }, [users]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') { // Haqiqiy sharoitda bu xavfsizroq bo'lishi kerak
+    if (password === 'admin123') {
       setIsAdminAuthenticated(true);
       toast({ title: "Xush kelibsiz", description: "Admin paneliga kirdingiz." });
     } else {
@@ -76,25 +87,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter(u => {
+      const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesGrade = selectedGrade === 'all' || u.grade === selectedGrade;
+      return matchesSearch && matchesGrade;
+    });
+  }, [users, searchTerm, selectedGrade]);
+
   const exportToCSV = () => {
-    if (!users) return;
-    const headers = ["Ism", "Sinf", "Daraja", "Jami Ball", "Oxirgi faollik"];
-    const rows = users.map(u => [
-      u.name, 
-      u.grade, 
+    if (!filteredUsers.length) {
+      toast({ variant: "destructive", title: "Eksport qilish uchun ma'lumot yo'q" });
+      return;
+    }
+    const headers = ["Ism", "Sinf", "Joriy Daraja", "Jami Ball", "Oxirgi faollik"];
+    const rows = filteredUsers.map(u => [
+      `"${u.name}"`, 
+      `"${u.grade}"`, 
       u.currentLevel || 1, 
       u.totalScore || 0, 
       u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Noma\'lum'
     ]);
     
-    let csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + rows.map(e => e.join(",")).join("\n");
-
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `oqituvchilar_hisoboti_${new Date().toLocaleDateString()}.csv`);
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `oqituvchi_hisoboti_${selectedGrade}_${new Date().toLocaleDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -121,7 +142,7 @@ export default function AdminDashboard() {
                 className="bg-[#24232C] border-white/5 text-white"
               />
               <Button type="submit" className="w-full btn-primary h-12">Kirish</Button>
-              <Button variant="ghost" onClick={() => router.push('/')} className="w-full text-muted-foreground">
+              <Button variant="ghost" onClick={() => router.push('/dashboard')} className="w-full text-muted-foreground">
                 <ArrowLeft className="w-4 h-4 mr-2" /> Orqaga qaytish
               </Button>
             </form>
@@ -130,10 +151,6 @@ export default function AdminDashboard() {
       </div>
     );
   }
-
-  const filteredUsers = users?.filter(u => 
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
 
   return (
     <div className="min-h-screen bg-[#0F0E13] text-white p-6 sm:p-10">
@@ -145,10 +162,10 @@ export default function AdminDashboard() {
             <p className="text-muted-foreground mt-1">O'quvchilar natijalari va monitoring</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={exportToCSV} className="border-white/10 hover:bg-white/5">
+            <Button variant="outline" onClick={exportToCSV} className="border-white/10 hover:bg-white/5 h-11">
               <Download className="w-4 h-4 mr-2" /> Eksport (CSV)
             </Button>
-            <Button variant="destructive" onClick={() => setIsAdminAuthenticated(false)} size="icon">
+            <Button variant="destructive" onClick={() => setIsAdminAuthenticated(false)} size="icon" className="h-11 w-11">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -201,38 +218,56 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Data Table */}
-          <Card className="lg:col-span-2 bg-[#1A1921] border-white/5 overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-white/5 pb-6">
-              <div>
-                <CardTitle>O'quvchilar Ro'yxati</CardTitle>
-                <CardDescription>Haqiqiy vaqtdagi progress</CardDescription>
-              </div>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Ism bo'yicha qidirish..." 
-                  className="pl-9 bg-[#24232C] border-none"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+          {/* Student Table Section */}
+          <Card className="lg:col-span-2 bg-[#1A1921] border-white/5 overflow-hidden flex flex-col">
+            <CardHeader className="border-b border-white/5 pb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>O'quvchilar Natijalari</CardTitle>
+                  <CardDescription>Sinflar bo'yicha saralangan ro'yxat</CardDescription>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Ism..." 
+                      className="pl-9 bg-[#24232C] border-none w-full sm:w-48 h-10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  
+                  <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+                    <SelectTrigger className="bg-[#24232C] border-none w-full sm:w-32 h-10">
+                      <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <SelectValue placeholder="Sinf" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1A1921] border-white/10 text-white">
+                      <SelectItem value="all">Barcha sinflar</SelectItem>
+                      {availableGrades.map(grade => (
+                        <SelectItem key={grade} value={grade}>{grade}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 flex-grow">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-white/5 text-muted-foreground text-xs uppercase tracking-widest">
                     <tr>
                       <th className="px-6 py-4 font-medium">O'quvchi</th>
                       <th className="px-6 py-4 font-medium text-center">Sinf</th>
-                      <th className="px-6 py-4 font-medium text-center">Daraja</th>
-                      <th className="px-6 py-4 font-medium text-right">Ball</th>
+                      <th className="px-6 py-4 font-medium text-center">Joriy Daraja</th>
+                      <th className="px-6 py-4 font-medium text-right">Jami Ball</th>
                       <th className="px-6 py-4 font-medium text-right">Oxirgi Kirish</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-white/5 transition-colors group cursor-pointer">
+                      <tr key={user.id} className="hover:bg-white/5 transition-colors group">
                         <td className="px-6 py-4">
                           <div className="font-medium text-white group-hover:text-primary transition-colors">{user.name}</div>
                         </td>
@@ -240,7 +275,9 @@ export default function AdminDashboard() {
                           <Badge variant="outline" className="border-white/10 text-muted-foreground">{user.grade}</Badge>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-xs font-bold">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto text-xs font-bold ${
+                            (user.currentLevel || 1) >= 8 ? 'bg-primary/20 text-primary' : 'bg-white/5 text-muted-foreground'
+                          }`}>
                             {user.currentLevel || 1}
                           </div>
                         </td>
@@ -257,7 +294,9 @@ export default function AdminDashboard() {
                     ))}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-6 py-20 text-center text-muted-foreground">O'quvchilar topilmadi</td>
+                        <td colSpan={5} className="px-6 py-20 text-center text-muted-foreground italic">
+                          Hech qanday ma'lumot topilmadi
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -266,8 +305,8 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Charts */}
-          <Card className="bg-[#1A1921] border-white/5">
+          {/* Chart Section */}
+          <Card className="bg-[#1A1921] border-white/5 h-fit">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart className="w-5 h-5 text-primary" />
@@ -295,20 +334,24 @@ export default function AdminDashboard() {
                     />
                     <Bar dataKey="avg" radius={[0, 4, 4, 0]} barSize={20}>
                       {subjectStats.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.avg < 70 ? '#ef4444' : '#BA6AFF'} />
+                        <Cell key={`cell-${index}`} fill={entry.avg < 60 ? '#ef4444' : '#BA6AFF'} />
                       ))}
                     </Bar>
                   </ReBarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-6 space-y-2">
-                <div className="flex justify-between text-xs">
+              <div className="mt-6 space-y-3 pt-6 border-t border-white/5">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Eng qiyin fan:</span>
-                  <span className="text-red-400 font-bold">{subjectStats[0]?.name || '-'}</span>
+                  <Badge variant="destructive" className="bg-red-500/10 text-red-500 border-red-500/20">
+                    {subjectStats[0]?.name || '-'}
+                  </Badge>
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Eng oson fan:</span>
-                  <span className="text-green-400 font-bold">{subjectStats[subjectStats.length - 1]?.name || '-'}</span>
+                  <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+                    {subjectStats[subjectStats.length - 1]?.name || '-'}
+                  </Badge>
                 </div>
               </div>
             </CardContent>
