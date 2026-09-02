@@ -16,7 +16,7 @@ const AiQuizHintInputSchema = z.object({
   question: z.string().describe('The full quiz question.'),
   studentAnswer: z.string().describe('The student\u0027s incorrect answer to the question.'),
   subject: z
-    .enum(['Ona tili', 'Matematika', 'Ingliz tili', 'Tarix', 'Mantiq', 'Tabiat'])
+    .enum(['Ona tili', 'Matematika', 'Algebra', 'Geometriya', 'Fizika', 'Kimyo', 'Biologiya', 'Ingliz tili', 'Tarix', 'Mantiq', 'Tabiat', 'Aralash'])
     .describe('The subject of the quiz question.'),
   gradeLevel: z.number().int().min(1).max(12).describe('The grade level of the student.'),
   previousHints: z.array(z.string()).optional().describe('An array of hints previously given for this question, to avoid repetition.'),

@@ -1,6 +1,8 @@
-export type Subject = 'Ona tili' | 'Matematika' | 'Ingliz tili' | 'Tarix' | 'Mantiq' | 'Tabiat';
+export type Subject = 'Ona tili' | 'Matematika' | 'Algebra' | 'Geometriya' | 'Fizika' | 'Kimyo' | 'Biologiya' | 'Ingliz tili' | 'Tarix' | 'Mantiq' | 'Tabiat' | 'Aralash';
 
 export type UserRole = 'admin' | 'teacher' | 'student';
+
+export type GradeTier = 'junior' | 'middle' | 'senior'; // 5-7, 8-9, 10-11
 
 export interface Question {
   id: string;
@@ -8,6 +10,7 @@ export interface Question {
   options: string[];
   correctAnswer: string;
   subject: Subject;
+  explanation?: string;
 }
 
 export interface Level {
@@ -20,13 +23,32 @@ export interface Level {
   highScore: number;
 }
 
+export interface SubjectStage {
+  id: string;
+  gradeTier: GradeTier;
+  grade: number;
+  subject: Subject;
+  stageNumber: number;
+  title: string;
+  description: string;
+  timeLimitSeconds?: number;
+  questions: Array<{
+    id: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation?: string;
+  }>;
+}
+
 export interface UserProfile {
   id?: string;
   name: string;
   login?: string;
   studentId?: string;
-  grade: string; // e.g. "5-A" or "5-Sinf"
-  gradeLevel?: number; // e.g. 5
+  grade: string; // e.g. "8-A", "10-B"
+  gradeLevel?: number; // 5..11
+  gradeTier?: GradeTier; // 'junior' | 'middle' | 'senior'
   classLetter?: string; // e.g. "A"
   currentLevel: number;
   totalScore: number;
@@ -37,6 +59,7 @@ export interface UserProfile {
   role?: UserRole;
   lastActive?: string;
 }
+
 
 export interface TeacherProfile {
   id: string;
