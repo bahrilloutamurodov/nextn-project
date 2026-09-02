@@ -16,6 +16,7 @@ export default function WelcomePage() {
   const db = useFirestore();
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('5-Sinf');
+  const [nameError, setNameError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,10 +30,15 @@ export default function WelcomePage() {
 
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setNameError("Iltimos, ismingizni kiriting!");
+      return;
+    }
+    setNameError('');
 
     const profileData = {
-      name,
+      name: trimmedName,
       grade,
       currentLevel: 1,
       totalScore: 0,
@@ -47,7 +53,7 @@ export default function WelcomePage() {
 
     // Save to Firestore (Anonymous user simulation using name+timestamp as ID if not authenticated)
     if (db) {
-      const tempId = name.replace(/\s+/g, '-').toLowerCase() + '-' + Date.now();
+      const tempId = trimmedName.replace(/\s+/g, '-').toLowerCase() + '-' + Date.now();
       localStorage.setItem('firebase_user_id', tempId);
       
       setDoc(doc(db, 'users', tempId), {
@@ -66,6 +72,8 @@ export default function WelcomePage() {
     </div>
   );
 
+  const dynamicHeaderTitle = `${grade.replace('-Sinf', '')}-sinflar test o'yini`;
+
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-[#0F0E13] relative overflow-hidden">
       {/* Decorative background glow */}
@@ -76,7 +84,9 @@ export default function WelcomePage() {
           <div className="w-16 h-16 bg-[#2D2A38] rounded-full flex items-center justify-center mx-auto mb-6">
             <GraduationCap className="w-8 h-8 text-primary" />
           </div>
-          <CardTitle className="text-3xl font-headline text-primary mb-2">5-sinflar test o'yini</CardTitle>
+          <CardTitle key={grade} className="text-3xl font-headline text-primary mb-2 transition-all duration-300 animate-in fade-in zoom-in-95">
+            {dynamicHeaderTitle}
+          </CardTitle>
           <CardDescription className="text-muted-foreground text-sm">
             Sarguzashtingizni boshlash uchun ismingizni kiriting
           </CardDescription>
@@ -84,15 +94,24 @@ export default function WelcomePage() {
         
         <CardContent className="pt-8 space-y-8">
           <form onSubmit={handleStart} className="space-y-6">
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className="text-[13px] font-medium text-muted-foreground block">To'liq ismingiz</label>
               <Input
                 placeholder="Masalan: Ali Valiev"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="bg-[#24232C] border-white/5 h-12 text-white placeholder:text-muted-foreground/50 focus:border-primary/50 transition-colors"
-                required
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (nameError) setNameError('');
+                }}
+                className={`bg-[#24232C] h-12 text-white placeholder:text-muted-foreground/50 transition-colors ${
+                  nameError ? 'border-destructive focus-visible:ring-destructive' : 'border-white/5 focus:border-primary/50'
+                }`}
               />
+              {nameError && (
+                <p className="text-xs text-destructive flex items-center gap-1 font-medium animate-in fade-in">
+                  ⚠️ {nameError}
+                </p>
+              )}
             </div>
             
             <div className="space-y-3">

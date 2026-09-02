@@ -11,10 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CongratsDialog } from '@/components/CongratsDialog';
 import { MiniGame } from '@/components/MiniGame';
 import { aiQuizHint } from '@/ai/flows/ai-quiz-hint';
-import { Lightbulb, ArrowLeft, ArrowRight, HelpCircle, Loader2 } from 'lucide-react';
+import { Lightbulb, ArrowLeft, ArrowRight, HelpCircle, Loader2, Clock, Heart, RotateCcw } from 'lucide-react';
 
 export default function QuizPage({ params }: { params: Promise<{ levelId: string }> }) {
   const router = useRouter();
@@ -30,6 +31,11 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [score, setScore] = useState(0);
 
+  // Timer & Lives mechanics
+  const [timeSpent, setTimeSpent] = useState(0);
+  const [lives, setLives] = useState(3);
+  const [isGameOver, setIsGameOver] = useState(false);
+
   useEffect(() => {
     const levels = getLevels();
     const currentLevel = levels.find(l => l.id === parseInt(levelId));
@@ -40,6 +46,23 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
     setLevel(currentLevel);
   }, [levelId, router]);
 
+  // Stage timer interval
+  useEffect(() => {
+    if (!level || isFinished || showMiniGame || isGameOver) return;
+
+    const timerId = setInterval(() => {
+      setTimeSpent(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [level, isFinished, showMiniGame, isGameOver]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleAnswerSelect = (option: string) => {
     const qId = level?.questions[currentQuestionIndex].id;
     if (qId) {
@@ -49,12 +72,35 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex < (level?.questions.length || 0) - 1) {
+    if (!level) return;
+    const currentQ = level.questions[currentQuestionIndex];
+    const selectedAnswer = answers[currentQ.id];
+
+    // Check answer correctness for Lives mode
+    if (selectedAnswer && selectedAnswer !== currentQ.correctAnswer) {
+      const nextLives = lives - 1;
+      setLives(nextLives);
+      if (nextLives <= 0) {
+        setIsGameOver(true);
+        return;
+      }
+    }
+
+    if (currentQuestionIndex < level.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setAiHint(null);
     } else {
       calculateResult();
     }
+  };
+
+  const handleRestartQuiz = () => {
+    setLives(3);
+    setIsGameOver(false);
+    setCurrentQuestionIndex(0);
+    setAnswers({});
+    setTimeSpent(0);
+    setAiHint(null);
   };
 
   const calculateResult = () => {
@@ -68,19 +114,37 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
     setScore(correctCount);
     setIsFinished(true);
 
-    // Barcha test natijalarini shu zahoti Firestore'ga yozamiz (o'tgan bo'lsa ham, yiqilgan bo'lsa ham)
+    // Barcha test natijalarini shu zahoti Firestore'ga yozamiz
     if (db) {
       const userId = localStorage.getItem('firebase_user_id');
       const profile = getUserProfile();
       if (userId && profile) {
+        const calculatedScorePercent = (correctCount / (level.questions.length || 1)) * 100;
+        
+        // Natijani results kolleksiyasiga yozamiz
         addDoc(collection(db, 'results'), {
           userId,
           userName: profile.name,
           levelId: parseInt(levelId),
-          score: (correctCount / (level.questions.length || 1)) * 100,
+          score: calculatedScorePercent,
           subject: level.questions[0]?.subject || 'Aralash',
+          timeSpent: timeSpent,
           timestamp: serverTimestamp()
         }).catch(err => console.error("Error saving result:", err));
+
+        // Userning profiliga ham jami ballni va faollikni qo'shamiz
+        const userRef = doc(db, 'users', userId);
+        const addedScore = correctCount * 10;
+        
+        // Mahaliy localStorage ni ham yangilaymiz
+        profile.totalScore += addedScore;
+        profile.lastActive = new Date().toISOString();
+        saveUserProfile(profile);
+
+        setDoc(userRef, {
+          totalScore: profile.totalScore,
+          lastActive: serverTimestamp()
+        }, { merge: true }).catch(err => console.error("Error updating user score:", err));
       }
     }
   };
@@ -133,10 +197,9 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
 
     saveLevels(levels);
 
-    // Update user profile
+    // Update user profile for levels
     const profile = getUserProfile();
     if (profile) {
-      profile.totalScore += score * 10;
       if (!profile.completedLevels.includes(parseInt(levelId))) {
         profile.completedLevels.push(parseInt(levelId));
       }
@@ -149,7 +212,6 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
         if (userId) {
           const userRef = doc(db, 'users', userId);
           setDoc(userRef, {
-            totalScore: profile.totalScore,
             currentLevel: profile.currentLevel,
             lastActive: serverTimestamp()
           }, { merge: true }).catch(err => console.error("Error updating user:", err));
@@ -165,7 +227,7 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
   if (showMiniGame) {
     return (
       <div className="min-h-screen bg-[#0F0E13] flex flex-col items-center justify-center p-6">
-        <MiniGame onComplete={handleMiniGameComplete} />
+        <MiniGame onComplete={handleMiniGameComplete} levelId={parseInt(levelId)} />
       </div>
     );
   }
@@ -176,21 +238,41 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
   return (
     <div className="min-h-screen bg-[#0F0E13] p-4 sm:p-8">
       <div className="max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <Button variant="ghost" onClick={() => router.push('/dashboard')} className="text-muted-foreground hover:text-white">
             <ArrowLeft className="mr-2 w-5 h-5" />
             Chiqish
           </Button>
+          
           <div className="text-center">
-            <h1 className="text-2xl font-headline text-primary">{level.title}</h1>
-            <p className="text-sm text-muted-foreground">Savol {currentQuestionIndex + 1} / {level.questions.length}</p>
+            <h1 className="text-xl sm:text-2xl font-headline text-primary">{level.title}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Savol {currentQuestionIndex + 1} / {level.questions.length}</p>
           </div>
-          <Badge variant="outline" className="text-accent border-accent/20 px-3 py-1">
-            {currentQuestion.subject}
-          </Badge>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Stage Timer */}
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs font-mono text-white">
+              <Clock className="w-3.5 h-3.5 text-accent animate-pulse" />
+              <span>{formatTime(timeSpent)}</span>
+            </div>
+
+            {/* 3 Lives Hearts */}
+            <div className="flex items-center gap-1">
+              {[1, 2, 3].map((heartIndex) => (
+                <Heart
+                  key={heartIndex}
+                  className={`w-4 h-4 transition-all duration-300 ${
+                    heartIndex <= lives
+                      ? 'text-rose-500 fill-rose-500 scale-100 drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]'
+                      : 'text-white/20 scale-90'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
-        <Progress value={progress} className="h-2 mb-12 bg-white/5" />
+        <Progress value={progress} className="h-2 mb-10 bg-white/5" />
 
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <Card className="glass-card border-white/5 overflow-hidden">
@@ -262,6 +344,32 @@ export default function QuizPage({ params }: { params: Promise<{ levelId: string
         totalQuestions={level.questions.length} 
         onContinue={handleContinueAfterCongrats}
       />
+
+      {/* Game Over Dialog */}
+      <Dialog open={isGameOver} onOpenChange={() => {}}>
+        <DialogContent className="bg-[#1A1921] border-destructive/30 text-white max-w-md rounded-2xl p-6 text-center">
+          <DialogHeader className="text-center pb-2">
+            <div className="w-16 h-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart className="w-8 h-8 text-destructive animate-bounce" />
+            </div>
+            <DialogTitle className="text-2xl font-headline text-destructive mb-1">
+              Barcha jonlar tugadi! 💔
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              Xavotir olmang! Qayta urinib ko'rish orqali o'z bilimingizni yanada oshirishingiz mumkin.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 mt-4">
+            <Button onClick={handleRestartQuiz} className="bg-primary hover:bg-primary/90 text-primary-foreground font-headline py-5 rounded-xl">
+              <RotateCcw className="w-4 h-4 mr-2" /> Qayta Boshlash
+            </Button>
+            <Button variant="ghost" onClick={() => router.push('/dashboard')} className="text-muted-foreground hover:text-white py-5 rounded-xl">
+              Dashboardga Qaytish
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
