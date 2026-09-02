@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { 
   Users, Target, Trophy, Download, ArrowLeft, ShieldCheck, 
-  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter, UserCog, Lock, AlertCircle, AlertTriangle, FileSpreadsheet, Clock, CheckCircle2, XCircle, UserPlus, Upload, FileCheck, Trash2, Edit, BookOpen
+  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter, UserCog, Lock, AlertCircle, AlertTriangle, FileSpreadsheet, Clock, CheckCircle2, XCircle, UserPlus, Upload, FileCheck, Trash2, Edit, BookOpen, UserCheck, Eye, EyeOff, Plus
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -31,6 +31,8 @@ import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const ALL_CLASSES = ["5-A", "5-B", "6-A", "6-B", "7-A", "7-B", "8-A", "8-B", "9-A", "9-B", "10-A", "10-B", "11-A", "11-B"];
+const GRADE_NUMBERS = [5, 6, 7, 8, 9, 10, 11];
+const CLASS_LETTERS = ["A", "B", "V", "G", "D"];
 const SUBJECTS: Subject[] = ['Matematika', 'Ona tili', 'Ingliz tili', 'Tarix', 'Mantiq', 'Tabiat'];
 const ITEMS_PER_PAGE = 20;
 
@@ -57,6 +59,10 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
 
+  // Local state for immediate reactivity without full page reload
+  const [localExtraStudents, setLocalExtraStudents] = useState<UserProfile[]>([]);
+  const [localExtraTeachers, setLocalExtraTeachers] = useState<TeacherProfile[]>([]);
+
   // Modals state
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
@@ -65,15 +71,19 @@ export default function AdminDashboard() {
 
   // New Student Form State
   const [newStudentName, setNewStudentName] = useState('');
-  const [newStudentGrade, setNewStudentGrade] = useState('5-A');
+  const [newStudentGradeNumber, setNewStudentGradeNumber] = useState<number>(5);
+  const [newStudentClassLetter, setNewStudentClassLetter] = useState<string>('A');
   const [newStudentLogin, setNewStudentLogin] = useState('');
+  const [studentFormError, setStudentFormError] = useState('');
 
   // New Teacher Form State
   const [newTeacherName, setNewTeacherName] = useState('');
   const [newTeacherSubject, setNewTeacherSubject] = useState<Subject>('Matematika');
   const [newTeacherLogin, setNewTeacherLogin] = useState('');
   const [newTeacherPassword, setNewTeacherPassword] = useState('');
+  const [showTeacherPassword, setShowTeacherPassword] = useState(false);
   const [newTeacherClasses, setNewTeacherClasses] = useState<string[]>(['5-A']);
+  const [teacherFormError, setTeacherFormError] = useState('');
 
   // Session check
   useEffect(() => {
@@ -100,21 +110,22 @@ export default function AdminDashboard() {
 
   // Mock / Local Fallback Teachers
   const teachers: TeacherProfile[] = useMemo(() => {
-    if (rawTeachers && rawTeachers.length > 0) return rawTeachers as any;
-    return [
+    const base = rawTeachers && rawTeachers.length > 0 ? (rawTeachers as any) : [
       { id: '1', full_name: 'Olimov Sardor', login: 'teacher1', subject: 'Matematika', assigned_classes: ['5-A', '6-A', '7-B'], role: 'teacher' },
       { id: '2', full_name: 'Nigora Malikova', login: 'teacher2', subject: 'Ingliz tili', assigned_classes: ['5-B', '6-B', '8-A'], role: 'teacher' },
     ];
-  }, [rawTeachers]);
+    return [...localExtraTeachers, ...base];
+  }, [rawTeachers, localExtraTeachers]);
 
   // Role Based Access Control (RBAC) Filtered Data
   const users = useMemo(() => {
-    if (!rawUsers) return [];
+    const base = rawUsers || [];
+    const combined = [...localExtraStudents, ...base];
     if (userRole === 'teacher' && currentTeacher) {
-      return rawUsers.filter(u => currentTeacher.assigned_classes.includes(u.grade));
+      return combined.filter(u => currentTeacher.assigned_classes.includes(u.grade));
     }
-    return rawUsers;
-  }, [rawUsers, userRole, currentTeacher]);
+    return combined;
+  }, [rawUsers, localExtraStudents, userRole, currentTeacher]);
 
   const results = useMemo(() => {
     if (!rawResults) return [];
@@ -229,12 +240,24 @@ export default function AdminDashboard() {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStudentName.trim()) return;
+    setStudentFormError('');
 
-    const studentData: Partial<UserProfile> = {
-      name: newStudentName.trim(),
-      grade: newStudentGrade,
-      login: newStudentLogin.trim() || newStudentName.toLowerCase().replace(/\s+/g, '.') + Math.floor(100 + Math.random() * 900),
+    const trimmedName = newStudentName.trim();
+    if (trimmedName.length < 3) {
+      setStudentFormError("F.I.SH kamida 3 ta belgidan iborat bo'lishi kerak.");
+      return;
+    }
+
+    const fullGrade = `${newStudentGradeNumber}-${newStudentClassLetter}`;
+    const generatedLogin = newStudentLogin.trim() || `${newStudentGradeNumber}${newStudentClassLetter}-${Math.floor(10 + Math.random() * 90)}`;
+
+    const newStudent: UserProfile = {
+      id: 'local-' + Date.now(),
+      name: trimmedName,
+      grade: fullGrade,
+      gradeLevel: newStudentGradeNumber,
+      classLetter: newStudentClassLetter,
+      login: generatedLogin,
       currentLevel: 1,
       totalScore: 0,
       completedLevels: [],
@@ -245,14 +268,17 @@ export default function AdminDashboard() {
       lastActive: new Date().toISOString()
     };
 
+    // Immediate local state update for instant metric & table reactivity
+    setLocalExtraStudents(prev => [newStudent, ...prev]);
+
     if (db) {
-      await addDoc(collection(db, 'users'), {
-        ...studentData,
+      addDoc(collection(db, 'users'), {
+        ...newStudent,
         createdAt: serverTimestamp()
       }).catch(err => console.error("Firestore add student error:", err));
     }
 
-    toast({ title: "O'quvchi qo'shildi", description: `${newStudentName} (${newStudentGrade}) tizimga qo'shildi.` });
+    toast({ title: "O'quvchi qo'shildi! 🎉", description: `${trimmedName} (${fullGrade}) tizimga muvaffaqiyatli biriktirildi.` });
     setNewStudentName('');
     setNewStudentLogin('');
     setShowAddStudentModal(false);
@@ -260,24 +286,40 @@ export default function AdminDashboard() {
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTeacherName.trim() || !newTeacherLogin.trim()) return;
+    setTeacherFormError('');
 
-    const teacherData: Partial<TeacherProfile> = {
-      full_name: newTeacherName.trim(),
+    const trimmedName = newTeacherName.trim();
+    const trimmedLogin = newTeacherLogin.trim();
+
+    if (trimmedName.length < 3) {
+      setTeacherFormError("O'qituvchi F.I.SH kamida 3 ta belgidan iborat bo'lishi kerak.");
+      return;
+    }
+    if (!trimmedLogin) {
+      setTeacherFormError("O'qituvchi login / telefoni kiritilishi shart.");
+      return;
+    }
+
+    const newTeacher: TeacherProfile = {
+      id: 'teacher-' + Date.now(),
+      full_name: trimmedName,
       subject: newTeacherSubject,
-      login: newTeacherLogin.trim(),
+      login: trimmedLogin,
       password: newTeacherPassword || '123456',
-      assigned_classes: newTeacherClasses,
+      assigned_classes: newTeacherClasses.length > 0 ? newTeacherClasses : ['5-A'],
       role: 'teacher',
       createdAt: new Date().toISOString()
     };
 
+    // Immediate local state update
+    setLocalExtraTeachers(prev => [newTeacher, ...prev]);
+
     if (db) {
-      await addDoc(collection(db, 'teachers'), teacherData)
+      addDoc(collection(db, 'teachers'), newTeacher)
         .catch(err => console.error("Firestore add teacher error:", err));
     }
 
-    toast({ title: "O'qituvchi qo'shildi", description: `${newTeacherName} (${newTeacherSubject}) qo'shildi.` });
+    toast({ title: "O'qituvchi biriktirildi! 🎓", description: `${trimmedName} (${newTeacherSubject}) tizimga qo'shildi.` });
     setNewTeacherName('');
     setNewTeacherLogin('');
     setNewTeacherPassword('');
@@ -531,6 +573,23 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex gap-2 sm:gap-3 flex-wrap items-center w-full md:w-auto">
+            <Button 
+              onClick={() => { setStudentFormError(''); setShowAddStudentModal(true); }} 
+              className="bg-gradient-to-r from-violet-600 to-purple-600 shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] text-white font-headline text-xs sm:text-sm h-10 rounded-xl flex items-center gap-2 transition-all"
+            >
+              <UserPlus className="w-4 h-4" /> + O'quvchi qo'shish
+            </Button>
+
+            {userRole === 'admin' && (
+              <Button 
+                onClick={() => { setTeacherFormError(''); setShowAddTeacherModal(true); }} 
+                variant="outline"
+                className="border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-headline text-xs sm:text-sm h-10 rounded-xl flex items-center gap-2 transition-all"
+              >
+                <UserCheck className="w-4 h-4" /> + O'qituvchi biriktirish
+              </Button>
+            )}
+
             <Button variant="outline" onClick={exportToCSV} className="border-white/10 hover:bg-white/5 h-10 text-xs sm:text-sm rounded-xl">
               <Download className="w-4 h-4 mr-2 text-muted-foreground" /> CSV
             </Button>
@@ -1075,51 +1134,105 @@ export default function AdminDashboard() {
 
       {/* MODAL 1: ADD STUDENT MODAL */}
       <Dialog open={showAddStudentModal} onOpenChange={setShowAddStudentModal}>
-        <DialogContent className="bg-[#1A1921] border-white/10 text-white max-w-md rounded-2xl p-6">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="text-xl font-headline text-primary">Yangi O'quvchi Qo'shish</DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">Yakka tartibda yangi o'quvchi hisobini yaratish</DialogDescription>
+        <DialogContent className="bg-[#161329] border border-purple-500/20 text-white max-w-md rounded-2xl p-6 shadow-[0_0_50px_rgba(139,92,246,0.25)] animate-in fade-in zoom-in-95 duration-200">
+          <DialogHeader className="pb-2 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400">
+                <UserPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-headline text-white">Yangi o'quvchi qo'shish</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">O'quvchi ma'lumotlarini kiriting va sinfga biriktiring</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <form onSubmit={handleAddStudent} className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Ism va Familiya</label>
+          <form onSubmit={handleAddStudent} className="space-y-4 py-3">
+            {studentFormError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{studentFormError}</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-purple-200/80">F.I.SH (To'liq ism)</label>
               <Input 
-                placeholder="Masalan: Jasur Saidov" 
+                placeholder="Masalan: Aliyev Valijon" 
                 value={newStudentName}
-                onChange={e => setNewStudentName(e.target.value)}
-                className="bg-[#24232C] border-white/5 text-white h-11 rounded-xl text-sm"
+                onChange={e => {
+                  setNewStudentName(e.target.value);
+                  if (studentFormError) setStudentFormError('');
+                }}
+                className="bg-[#252042] border-white/10 text-white h-11 rounded-xl text-sm focus:border-violet-500 focus:ring-violet-500/30 placeholder:text-muted-foreground/40"
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Sinfi</label>
-              <Select value={newStudentGrade} onValueChange={setNewStudentGrade}>
-                <SelectTrigger className="bg-[#24232C] border-white/5 text-white h-11 rounded-xl text-sm">
-                  <SelectValue placeholder="Sinfni tanlang" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1A1921] border-white/10 text-white">
-                  {ALL_CLASSES.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-purple-200/80">Sinf</label>
+                <Select 
+                  value={String(newStudentGradeNumber)} 
+                  onValueChange={(val) => setNewStudentGradeNumber(Number(val))}
+                >
+                  <SelectTrigger className="bg-[#252042] border-white/10 text-white h-11 rounded-xl text-sm">
+                    <SelectValue placeholder="Sinfni tanlang" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161329] border-purple-500/20 text-white">
+                    {GRADE_NUMBERS.map(g => (
+                      <SelectItem key={g} value={String(g)}>{g}-sinf</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-purple-200/80">Sinf harfi / Guruhi</label>
+                <Select 
+                  value={newStudentClassLetter} 
+                  onValueChange={setNewStudentClassLetter}
+                >
+                  <SelectTrigger className="bg-[#252042] border-white/10 text-white h-11 rounded-xl text-sm">
+                    <SelectValue placeholder="Harf" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161329] border-purple-500/20 text-white">
+                    {CLASS_LETTERS.map(l => (
+                      <SelectItem key={l} value={l}>{l} guruhi</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Login / ID (ixtiyoriy)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-purple-200/80 flex items-center justify-between">
+                <span>Login / ID kodi</span>
+                <span className="text-[10px] text-muted-foreground italic">(Ixtiyoriy yoki avto-generatsiya)</span>
+              </label>
               <Input 
-                placeholder="Masalan: jasur.6a" 
+                placeholder={`Masalan: ${newStudentGradeNumber}${newStudentClassLetter}-12`} 
                 value={newStudentLogin}
                 onChange={e => setNewStudentLogin(e.target.value)}
-                className="bg-[#24232C] border-white/5 text-white h-11 rounded-xl text-sm"
+                className="bg-[#252042] border-white/10 text-white h-11 rounded-xl text-sm focus:border-violet-500 placeholder:text-muted-foreground/40"
               />
             </div>
 
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="ghost" onClick={() => setShowAddStudentModal(false)} className="text-muted-foreground hover:text-white rounded-xl">Bekor qilish</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-headline rounded-xl px-6">Saqlash</Button>
+            <DialogFooter className="pt-4 border-t border-white/5 flex gap-2 justify-end">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setShowAddStudentModal(false)} 
+                className="text-muted-foreground hover:text-white hover:bg-white/5 h-11 rounded-xl text-sm px-5"
+              >
+                Bekor qilish
+              </Button>
+              <Button 
+                type="submit" 
+                className="bg-gradient-to-r from-violet-600 to-purple-600 shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] text-white font-headline h-11 rounded-xl px-6 text-sm transition-all"
+              >
+                Saqlash
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1127,31 +1240,48 @@ export default function AdminDashboard() {
 
       {/* MODAL 2: ADD TEACHER MODAL */}
       <Dialog open={showAddTeacherModal} onOpenChange={setShowAddTeacherModal}>
-        <DialogContent className="bg-[#1A1921] border-white/10 text-white max-w-md rounded-2xl p-6">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="text-xl font-headline text-accent">Yangi O'qituvchi Qo'shish</DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">O'qituvchiga fan va sinflarni biriktirish</DialogDescription>
+        <DialogContent className="bg-[#161329] border border-purple-500/20 text-white max-w-md rounded-2xl p-6 shadow-[0_0_50px_rgba(139,92,246,0.25)] animate-in fade-in zoom-in-95 duration-200">
+          <DialogHeader className="pb-2 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-300">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-headline text-white">O'qituvchi qo'shish va sinf biriktirish</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">O'qituvchi profilini yaratish va o'quv sinflarini biriktirish</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <form onSubmit={handleAddTeacher} className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">To'liq Ismi (F.I.SH)</label>
+          <form onSubmit={handleAddTeacher} className="space-y-4 py-3">
+            {teacherFormError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{teacherFormError}</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-purple-200/80">O'qituvchi F.I.SH</label>
               <Input 
-                placeholder="Masalan: Olimov Sardor" 
+                placeholder="Masalan: Karimov Jamshid" 
                 value={newTeacherName}
-                onChange={e => setNewTeacherName(e.target.value)}
-                className="bg-[#24232C] border-white/5 text-white h-11 rounded-xl text-sm"
+                onChange={e => {
+                  setNewTeacherName(e.target.value);
+                  if (teacherFormError) setTeacherFormError('');
+                }}
+                className="bg-[#252042] border-white/10 text-white h-11 rounded-xl text-sm focus:border-violet-500 placeholder:text-muted-foreground/40"
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Biriktirilgan Fan</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-purple-200/80">Mutaxassislik / Fani</label>
               <Select value={newTeacherSubject} onValueChange={(val: Subject) => setNewTeacherSubject(val)}>
-                <SelectTrigger className="bg-[#24232C] border-white/5 text-white h-11 rounded-xl text-sm">
+                <SelectTrigger className="bg-[#252042] border-white/10 text-white h-11 rounded-xl text-sm">
                   <SelectValue placeholder="Fanni tanlang" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1A1921] border-white/10 text-white">
+                <SelectContent className="bg-[#161329] border-purple-500/20 text-white">
                   {SUBJECTS.map(s => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
@@ -1159,31 +1289,43 @@ export default function AdminDashboard() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Login (Tizimga kirish uchun)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-purple-200/80">Telefon / Login</label>
               <Input 
-                placeholder="Masalan: teacher_sardor" 
+                placeholder="Masalan: teacher_jamshid" 
                 value={newTeacherLogin}
-                onChange={e => setNewTeacherLogin(e.target.value)}
-                className="bg-[#24232C] border-white/5 text-white h-11 rounded-xl text-sm"
+                onChange={e => {
+                  setNewTeacherLogin(e.target.value);
+                  if (teacherFormError) setTeacherFormError('');
+                }}
+                className="bg-[#252042] border-white/10 text-white h-11 rounded-xl text-sm focus:border-violet-500 placeholder:text-muted-foreground/40"
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Vaqtinchalik Parol</label>
-              <Input 
-                type="password"
-                placeholder="••••••••" 
-                value={newTeacherPassword}
-                onChange={e => setNewTeacherPassword(e.target.value)}
-                className="bg-[#24232C] border-white/5 text-white h-11 rounded-xl text-sm"
-              />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-purple-200/80">Parol</label>
+              <div className="relative">
+                <Input 
+                  type={showTeacherPassword ? "text" : "password"}
+                  placeholder="••••••••" 
+                  value={newTeacherPassword}
+                  onChange={e => setNewTeacherPassword(e.target.value)}
+                  className="bg-[#252042] border-white/10 text-white h-11 pr-10 rounded-xl text-sm focus:border-violet-500 placeholder:text-muted-foreground/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTeacherPassword(!showTeacherPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+                >
+                  {showTeacherPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground block">Biriktirilgan Sinflar</label>
-              <div className="flex gap-1.5 flex-wrap max-h-24 overflow-y-auto p-2 bg-[#24232C] rounded-xl border border-white/5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-purple-200/80 block">Biriktirilgan sinflar (Multi-select)</label>
+              <div className="flex gap-1.5 flex-wrap max-h-28 overflow-y-auto p-2.5 bg-[#252042] rounded-xl border border-white/10">
                 {ALL_CLASSES.map(c => {
                   const isSelected = newTeacherClasses.includes(c);
                   return (
@@ -1199,7 +1341,7 @@ export default function AdminDashboard() {
                       }}
                       className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
                         isSelected 
-                          ? 'bg-accent text-accent-foreground font-bold' 
+                          ? 'bg-purple-600 text-white font-bold shadow-[0_0_10px_rgba(147,51,234,0.5)]' 
                           : 'bg-white/5 text-muted-foreground hover:text-white'
                       }`}
                     >
@@ -1210,9 +1352,21 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="ghost" onClick={() => setShowAddTeacherModal(false)} className="text-muted-foreground hover:text-white rounded-xl">Bekor qilish</Button>
-              <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground font-headline rounded-xl px-6">Saqlash</Button>
+            <DialogFooter className="pt-4 border-t border-white/5 flex gap-2 justify-end">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setShowAddTeacherModal(false)} 
+                className="text-muted-foreground hover:text-white hover:bg-white/5 h-11 rounded-xl text-sm px-5"
+              >
+                Bekor qilish
+              </Button>
+              <Button 
+                type="submit" 
+                className="bg-gradient-to-r from-violet-600 to-purple-600 shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] text-white font-headline h-11 rounded-xl px-6 text-sm transition-all"
+              >
+                Saqlash
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
