@@ -29,8 +29,33 @@ export default function LevelMapPage() {
       return;
     }
     setProfile(p);
-    setLevels(getLevels());
-  }, [router]);
+    
+    const baseLevels = getLevels();
+    setLevels(baseLevels);
+
+    // Fetch custom created stages from Firestore if connected
+    if (db) {
+      getDocs(query(collection(db, 'quiz_stages'))).then(snapshot => {
+        if (!snapshot.empty) {
+          const fetchedCustomStages: Level[] = [];
+          snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const nextId = baseLevels.length + fetchedCustomStages.length + 1;
+            fetchedCustomStages.push({
+              id: nextId,
+              title: data.title || `${nextId}-Bosqich`,
+              description: data.description || '',
+              questions: data.questions || [],
+              unlocked: true,
+              completed: false,
+              highScore: 0
+            });
+          });
+          setLevels([...baseLevels, ...fetchedCustomStages]);
+        }
+      }).catch(err => console.error("Firestore stages fetch error:", err));
+    }
+  }, [router, db]);
 
   const fetchLeaderboard = async () => {
     setLoadingLeaderboard(true);
