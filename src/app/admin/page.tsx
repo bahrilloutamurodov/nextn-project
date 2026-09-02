@@ -7,6 +7,8 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, limit, addDoc, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { parseStudentsExcel, downloadStudentTemplate } from '@/lib/excel-parser';
+import { parseQuizText, ParsedQuizQuestion } from '@/lib/quiz-parser';
+import { addNewQuizLevel } from '@/lib/store';
 import { TeacherProfile, UserProfile, Subject } from '@/lib/types';
 import { 
   Card, CardContent, CardHeader, CardTitle, CardDescription 
@@ -21,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { 
   Users, Target, Trophy, Download, ArrowLeft, ShieldCheck, 
-  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter, UserCog, Lock, AlertCircle, AlertTriangle, FileSpreadsheet, Clock, CheckCircle2, XCircle, UserPlus, Upload, FileCheck, Trash2, Edit, BookOpen, UserCheck, Eye, EyeOff, Plus
+  BarChart as ChartIcon, Search, LogOut, Loader2, Calendar, Filter, UserCog, Lock, AlertCircle, AlertTriangle, FileSpreadsheet, Clock, CheckCircle2, XCircle, UserPlus, Upload, FileCheck, Trash2, Edit, BookOpen, UserCheck, Eye, EyeOff, Plus, HelpCircle, FileText, PlusCircle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -33,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const ALL_CLASSES = ["5-A", "5-B", "6-A", "6-B", "7-A", "7-B", "8-A", "8-B", "9-A", "9-B", "10-A", "10-B", "11-A", "11-B"];
 const GRADE_NUMBERS = [5, 6, 7, 8, 9, 10, 11];
 const CLASS_LETTERS = ["A", "B", "V", "G", "D"];
-const SUBJECTS: Subject[] = ['Matematika', 'Ona tili', 'Ingliz tili', 'Tarix', 'Mantiq', 'Tabiat'];
+const SUBJECTS: Subject[] = ['Matematika', 'Algebra', 'Geometriya', 'Fizika', 'Kimyo', 'Biologiya', 'Ona tili', 'Ingliz tili', 'Tarix', 'Mantiq', 'Tabiat'];
 const ITEMS_PER_PAGE = 20;
 
 export default function AdminDashboard() {
@@ -67,7 +69,28 @@ export default function AdminDashboard() {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [showAddQuizModal, setShowAddQuizModal] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Quiz Builder Form States
+  const [quizMode, setQuizMode] = useState<'manual' | 'bulk'>('manual');
+  const [quizGrade, setQuizGrade] = useState<number>(5);
+  const [quizSubject, setQuizSubject] = useState<Subject>('Matematika');
+  const [quizTitle, setQuizTitle] = useState('');
+  const [quizDescription, setQuizDescription] = useState('');
+  const [quizFormError, setQuizFormError] = useState('');
+  const [manualQuestions, setManualQuestions] = useState<Array<{
+    text: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctLetter: 'A' | 'B' | 'C' | 'D';
+    explanation: string;
+  }>>([
+    { text: '', optionA: '', optionB: '', optionC: '', optionD: '', correctLetter: 'A', explanation: '' }
+  ]);
+  const [bulkText, setBulkText] = useState('');
 
   // New Student Form State
   const [newStudentName, setNewStudentName] = useState('');
@@ -324,6 +347,104 @@ export default function AdminDashboard() {
     setNewTeacherLogin('');
     setNewTeacherPassword('');
     setShowAddTeacherModal(false);
+  };
+
+  const handleAddManualQuestion = () => {
+    setManualQuestions(prev => [
+      ...prev,
+      { text: '', optionA: '', optionB: '', optionC: '', optionD: '', correctLetter: 'A', explanation: '' }
+    ]);
+  };
+
+  const handleRemoveManualQuestion = (index: number) => {
+    if (manualQuestions.length <= 1) return;
+    setManualQuestions(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleSaveQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQuizFormError('');
+
+    let finalQuestions: any[] = [];
+
+    if (quizMode === 'manual') {
+      const validQuestions = manualQuestions.filter(q => q.text.trim().length > 0);
+      if (validQuestions.length === 0) {
+        setQuizFormError("Kamida 1 ta savol matnini kiritishingiz shart.");
+        return;
+      }
+
+      for (let i = 0; i < validQuestions.length; i++) {
+        const q = validQuestions[i];
+        const opts = [q.optionA.trim(), q.optionB.trim(), q.optionC.trim(), q.optionD.trim()].filter(Boolean);
+        if (opts.length < 2) {
+          setQuizFormError(`Savol ${i + 1}: Kamida 2 ta variant matnini kiriting.`);
+          return;
+        }
+        const letterIdx = q.correctLetter === 'A' ? 0 : q.correctLetter === 'B' ? 1 : q.correctLetter === 'C' ? 2 : 3;
+        
+        finalQuestions.push({
+          id: `q-manual-${Date.now()}-${i}`,
+          text: q.text.trim(),
+          options: opts,
+          correctAnswer: opts[letterIdx] || opts[0],
+          subject: quizSubject,
+          explanation: q.explanation.trim()
+        });
+      }
+    } else {
+      // Bulk Text Mode
+      const parsed = parseQuizText(bulkText);
+      if (parsed.questions.length === 0) {
+        setQuizFormError(parsed.errors[0] || "Kiritilgan matndan savollar o'qib bo'lmadi. Namuna shakliga moslang.");
+        return;
+      }
+
+      finalQuestions = parsed.questions.map((pq, idx) => ({
+        id: `q-bulk-${Date.now()}-${idx}`,
+        text: pq.question,
+        options: pq.options,
+        correctAnswer: pq.correctAnswerText,
+        subject: quizSubject,
+        explanation: pq.explanation
+      }));
+    }
+
+    const title = quizTitle.trim() || `${quizGrade}-Sinf: ${quizSubject} Yangi Test`;
+    const description = quizDescription.trim() || `${quizGrade}-sinf o'quvchilari uchun ${quizSubject} fani bo'yicha maxsus test savollari banki`;
+
+    // Save to LocalStorage / Local Store
+    const createdLevel = addNewQuizLevel({
+      title,
+      description,
+      questions: finalQuestions,
+      grade: quizGrade,
+      subject: quizSubject
+    });
+
+    // Save to Firestore
+    if (db) {
+      addDoc(collection(db, 'quiz_stages'), {
+        title,
+        description,
+        grade: quizGrade,
+        subject: quizSubject,
+        questions: finalQuestions,
+        createdAt: serverTimestamp()
+      }).catch(err => console.error("Firestore save quiz error:", err));
+    }
+
+    toast({
+      title: "Yangi test yaratildi! 📝",
+      description: `"${title}" (${finalQuestions.length} ta savol) muvaffaqiyatli saqlandi va o'yinga qo'shildi.`
+    });
+
+    // Reset forms
+    setQuizTitle('');
+    setQuizDescription('');
+    setBulkText('');
+    setManualQuestions([{ text: '', optionA: '', optionB: '', optionC: '', optionD: '', correctLetter: 'A', explanation: '' }]);
+    setShowAddQuizModal(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -589,6 +710,13 @@ export default function AdminDashboard() {
                 <UserCheck className="w-4 h-4" /> + O'qituvchi biriktirish
               </Button>
             )}
+
+            <Button 
+              onClick={() => { setQuizFormError(''); setShowAddQuizModal(true); }} 
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] text-white font-headline text-xs sm:text-sm h-10 rounded-xl flex items-center gap-2 transition-all"
+            >
+              <PlusCircle className="w-4 h-4" /> + Yangi test qo'shish
+            </Button>
 
             <Button variant="outline" onClick={exportToCSV} className="border-white/10 hover:bg-white/5 h-10 text-xs sm:text-sm rounded-xl">
               <Download className="w-4 h-4 mr-2 text-muted-foreground" /> CSV
@@ -1487,6 +1615,292 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* MODAL 4: ADD QUIZ MODAL (QUIZ BUILDER) */}
+      <Dialog open={showAddQuizModal} onOpenChange={setShowAddQuizModal}>
+        <DialogContent className="bg-[#161329] border border-purple-500/20 text-white max-w-3xl rounded-2xl p-6 shadow-[0_0_50px_rgba(139,92,246,0.25)] max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+          <DialogHeader className="pb-3 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-300">
+                <PlusCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-headline text-white">Savollar Banki & Test Qo'shish</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">O'qituvchilar uchun yangi test bosqichi va savollar yaratish moduli</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveQuiz} className="space-y-5 py-3">
+            {quizFormError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{quizFormError}</span>
+              </div>
+            )}
+
+            {/* Shared Metadata Header */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#252042] p-3.5 rounded-2xl border border-white/10">
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-purple-200/80">Sinf</label>
+                <Select value={String(quizGrade)} onValueChange={(val) => setQuizGrade(Number(val))}>
+                  <SelectTrigger className="bg-[#161329] border-white/10 text-white h-10 rounded-xl text-xs">
+                    <SelectValue placeholder="Sinf" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161329] border-purple-500/20 text-white">
+                    {GRADE_NUMBERS.map(g => (
+                      <SelectItem key={g} value={String(g)}>{g}-sinf</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-purple-200/80">Fan</label>
+                <Select value={quizSubject} onValueChange={(val: Subject) => setQuizSubject(val)}>
+                  <SelectTrigger className="bg-[#161329] border-white/10 text-white h-10 rounded-xl text-xs">
+                    <SelectValue placeholder="Fan" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161329] border-purple-500/20 text-white">
+                    {SUBJECTS.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1 sm:col-span-1">
+                <label className="text-[11px] font-medium text-purple-200/80">Test Sarlavhasi</label>
+                <Input 
+                  placeholder="Masalan: Qisqa ko'paytirish formulalari" 
+                  value={quizTitle}
+                  onChange={e => setQuizTitle(e.target.value)}
+                  className="bg-[#161329] border-white/10 text-white h-10 rounded-xl text-xs placeholder:text-muted-foreground/40"
+                />
+              </div>
+            </div>
+
+            {/* Mode Switcher Tabs */}
+            <div className="flex border-b border-white/10 gap-3 pb-2">
+              <button
+                type="button"
+                onClick={() => setQuizMode('manual')}
+                className={`px-4 py-2 text-xs font-headline rounded-xl transition-all flex items-center gap-2 ${
+                  quizMode === 'manual' 
+                    ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)]' 
+                    : 'bg-white/5 text-muted-foreground hover:text-white'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" /> Oddiy qo'shish (Forma)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuizMode('bulk')}
+                className={`px-4 py-2 text-xs font-headline rounded-xl transition-all flex items-center gap-2 ${
+                  quizMode === 'bulk' 
+                    ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)]' 
+                    : 'bg-white/5 text-muted-foreground hover:text-white'
+                }`}
+              >
+                <Upload className="w-3.5 h-3.5" /> Tezkor matndan yuklash (Bulk Paste)
+              </button>
+            </div>
+
+            {/* Mode A: Manual Questions List */}
+            {quizMode === 'manual' && (
+              <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                {manualQuestions.map((q, idx) => (
+                  <div key={idx} className="p-4 bg-[#252042]/70 rounded-2xl border border-white/10 space-y-3 relative group">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-headline text-purple-300">Savol #{idx + 1}</span>
+                      {manualQuestions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveManualQuestion(idx)}
+                          className="text-muted-foreground hover:text-red-400 text-xs p-1 transition-colors"
+                          title="Savolni o'chirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div>
+                      <textarea
+                        rows={2}
+                        placeholder="Savol matnini kiriting..."
+                        value={q.text}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setManualQuestions(prev => prev.map((item, i) => i === idx ? { ...item, text: val } : item));
+                        }}
+                        className="w-full p-3 bg-[#161329] border border-white/10 text-white text-xs rounded-xl focus:border-violet-500 focus:outline-none placeholder:text-muted-foreground/40 resize-none"
+                      />
+                    </div>
+
+                    {/* Options A, B, C, D */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[10px] text-purple-200/70 font-mono">A variant</span>
+                        <Input
+                          placeholder="A variant matni"
+                          value={q.optionA}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setManualQuestions(prev => prev.map((item, i) => i === idx ? { ...item, optionA: val } : item));
+                          }}
+                          className="bg-[#161329] border-white/10 text-white h-9 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-purple-200/70 font-mono">B variant</span>
+                        <Input
+                          placeholder="B variant matni"
+                          value={q.optionB}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setManualQuestions(prev => prev.map((item, i) => i === idx ? { ...item, optionB: val } : item));
+                          }}
+                          className="bg-[#161329] border-white/10 text-white h-9 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-purple-200/70 font-mono">C variant</span>
+                        <Input
+                          placeholder="C variant matni"
+                          value={q.optionC}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setManualQuestions(prev => prev.map((item, i) => i === idx ? { ...item, optionC: val } : item));
+                          }}
+                          className="bg-[#161329] border-white/10 text-white h-9 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-purple-200/70 font-mono">D variant</span>
+                        <Input
+                          placeholder="D variant matni"
+                          value={q.optionD}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setManualQuestions(prev => prev.map((item, i) => i === idx ? { ...item, optionD: val } : item));
+                          }}
+                          className="bg-[#161329] border-white/10 text-white h-9 rounded-lg text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Correct Answer & Explanation */}
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <span className="text-[10px] text-purple-200/80 font-headline block mb-1">To'g'ri Javob Variant</span>
+                        <div className="flex gap-1.5">
+                          {(['A', 'B', 'C', 'D'] as const).map(letter => (
+                            <button
+                              key={letter}
+                              type="button"
+                              onClick={() => {
+                                setManualQuestions(prev => prev.map((item, i) => i === idx ? { ...item, correctLetter: letter } : item));
+                              }}
+                              className={`flex-1 h-8 rounded-lg text-xs font-headline transition-all ${
+                                q.correctLetter === letter 
+                                  ? 'bg-emerald-500 text-white font-bold shadow-[0_0_10px_rgba(16,185,129,0.5)]' 
+                                  : 'bg-[#161329] text-muted-foreground hover:text-white'
+                              }`}
+                            >
+                              {letter}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] text-purple-200/80 font-headline block mb-1">Izoh / Tushuntirish (ixtiyoriy)</span>
+                        <Input
+                          placeholder="Savol izohi..."
+                          value={q.explanation}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setManualQuestions(prev => prev.map((item, i) => i === idx ? { ...item, explanation: val } : item));
+                          }}
+                          className="bg-[#161329] border-white/10 text-white h-8 rounded-lg text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  onClick={handleAddManualQuestion}
+                  variant="outline"
+                  className="w-full border-dashed border-white/20 hover:border-purple-500 text-purple-300 hover:bg-purple-500/10 h-11 rounded-xl text-xs font-headline flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> + Yana savol qo'shish
+                </Button>
+              </div>
+            )}
+
+            {/* Mode B: Bulk Text Paste Parser */}
+            {quizMode === 'bulk' && (
+              <div className="space-y-3">
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] text-purple-200/80 space-y-1 font-mono">
+                  <span className="font-headline text-purple-300 block">💡 Namuna formatida matn kiriting:</span>
+                  <pre className="text-[10px] text-muted-foreground/80 leading-relaxed">
+                    1. Fonetika nimani o'rganadi?{'\n'}
+                    A) Tovushlarni{'\n'}
+                    B) So'zlarni{'\n'}
+                    C) Gaplarni{'\n'}
+                    D) Tinish belgilarini{'\n'}
+                    Javob: A
+                  </pre>
+                </div>
+
+                <textarea
+                  rows={8}
+                  placeholder="Test matnini bu yerga joylashtiring (Paste)..."
+                  value={bulkText}
+                  onChange={e => setBulkText(e.target.value)}
+                  className="w-full p-3.5 bg-[#252042] border border-white/10 text-white text-xs rounded-xl focus:border-violet-500 focus:outline-none placeholder:text-muted-foreground/40 font-mono resize-y"
+                />
+
+                {(() => {
+                  if (!bulkText.trim()) return null;
+                  const parsed = parseQuizText(bulkText);
+                  return (
+                    <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between text-xs">
+                      <span className="text-purple-300 font-headline flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        Matndan {parsed.totalParsed} ta savol muvaffaqiyatli aniqlandi
+                      </span>
+                      {parsed.errors.length > 0 && (
+                        <span className="text-amber-400 text-[11px]">{parsed.errors[0]}</span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <DialogFooter className="pt-4 border-t border-white/5 flex gap-2 justify-end">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setShowAddQuizModal(false)} 
+                className="text-muted-foreground hover:text-white hover:bg-white/5 h-11 rounded-xl text-sm px-5"
+              >
+                Bekor qilish
+              </Button>
+              <Button 
+                type="submit" 
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] text-white font-headline h-11 rounded-xl px-6 text-sm transition-all"
+              >
+                Saqlash va O'yinga Qo'shish
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

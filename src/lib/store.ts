@@ -28,6 +28,25 @@ export const getLevels = (): Level[] => {
   return data ? JSON.parse(data) : INITIAL_LEVELS;
 };
 
+export const addNewQuizLevel = (levelData: { title: string; description: string; questions: any[]; grade?: number; subject?: string }) => {
+  const levels = getLevels();
+  const nextId = levels.length > 0 ? Math.max(...levels.map(l => l.id)) + 1 : 1;
+
+  const newLevel: Level = {
+    id: nextId,
+    title: levelData.title || `${nextId}-Bosqich: ${levelData.subject || 'Yangi Test'}`,
+    description: levelData.description || `${levelData.grade || 5}-sinf ${levelData.subject || 'Mavzu'} bo'yicha maxsus test`,
+    questions: levelData.questions,
+    unlocked: true,
+    completed: false,
+    highScore: 0
+  };
+
+  const updatedLevels = [...levels, newLevel];
+  saveLevels(updatedLevels);
+  return newLevel;
+};
+
 export const resetProgress = () => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY);
